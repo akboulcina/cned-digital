@@ -28,7 +28,9 @@
     "freebies"
   ],
   "scripts": {
+    "prestart": "node --env-file-if-exists=.env scripts/generate-map-config.mjs",
     "start": "python3 -m http.server 8080",
+    "prebuild": "node --env-file-if-exists=.env scripts/generate-map-config.mjs",
     "build": "npx gulp build",
     "build:js": "npx gulp build:js",
     "build:css": "npx gulp build:css",

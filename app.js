@@ -13,6 +13,17 @@ import { wilayas, wilayaSource } from './data/wilayas.js';
 
 const app = document.querySelector('#app');
 let leafMaps = [];
+let mapConfig = null;
+try {
+  const configResponse = await fetch('./map-config.json', { cache: 'no-store' });
+  if (configResponse.ok) {
+    mapConfig = await configResponse.json();
+  } else if (configResponse.status !== 404) {
+    throw new Error(`Impossible de charger la configuration cartographique (${configResponse.status}).`);
+  }
+} catch (error) {
+  console.warn('Configuration des tuiles cartographiques indisponible; seules les données géographiques locales seront affichées.', error);
+}
 const saved = (key, fallback, storage = localStorage) => {
   const raw = storage.getItem(key);
   if (!raw) return fallback;
@@ -875,7 +886,7 @@ function mapPage() {
         <aside class="reference-map-aside"><div class="map-legend mb-3"><span><i class="legend-dot" style="background:#bf5550"></i>À l’arrêt</span><span><i class="legend-dot" style="background:#c97b21"></i>En retard / surveillance</span><span><i class="legend-dot" style="background:#428b6e"></i>Suivi normal</span></div>
           <strong>${visibleProjects.length} projet(s) de référence · ${selectedWilayas.length} wilaya(s) affichée(s)</strong>
           <div class="list-group reference-map-project-list mt-2">${projectList || '<div class="empty-state py-3">Aucun projet ne correspond aux filtres.</div>'}</div>
-          ${selected ? `<div class="map-selection mt-3"><span class="eyebrow">Projet sélectionné</span><h6 class="mt-2 mb-1">${escapeHTML(selected.name)}</h6><p class="small text-muted">${escapeHTML(selected.id)} · ${escapeHTML(selected.wilayas.join(', '))} · ${escapeHTML(selected.sector)}</p>${referenceStatusBadge(selected)}
+          ${selected ? `<div class="map-selection mt-3" data-map-selection><span class="eyebrow">Projet sélectionné</span><h6 class="mt-2 mb-1">${escapeHTML(selected.name)}</h6><p class="small text-muted">${escapeHTML(selected.id)} · ${escapeHTML(selected.wilayas.join(', '))} · ${escapeHTML(selected.sector)}</p>${referenceStatusBadge(selected)}
             <div class="project-fact mt-3"><span>AE actuelle</span><strong>${referenceNumber(selected.aeCurrent)} Md DA</strong></div>
             <div class="project-fact"><span>Avancement physique / financier</span><strong>${referenceNumber(selected.physical, 1)} % / ${referenceNumber(selected.financial, 1)} %</strong></div>
             <div class="project-fact"><span>Fin contractuelle</span><strong>${escapeHTML(selected.contractualEnd)}</strong></div>
@@ -1110,7 +1121,7 @@ function renderCurrentPage() {
 }
 
 function disposeLeafletMaps() {
-  leafMaps.forEach((map) => map.remove());
+  leafMaps.forEach(({ map }) => map.remove());
   leafMaps = [];
 }
 
@@ -1153,15 +1164,64 @@ function initializeLeafletMaps(root) {
       ? wilayas.filter((item) => wilayaCodes.includes(item.code))
       : wilayas;
     const map = leaflet.map(element, { scrollWheelZoom: false, zoomControl: !element.classList.contains('leaflet-mini-map') });
-    const base = leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
-    });
-    base.on('tileerror', () => {
-      const message = element.closest('.card-body')?.querySelector('[data-map-message]');
-      if (message) message.textContent = 'Le fond de carte est indisponible (connexion externe). Les points de wilaya et les données de projet restent disponibles.';
-    });
-    base.addTo(map);
+    const providerAvailable = mapConfig?.provider && mapConfig?.url;
+    let base = null;
+    let layerControl = null;
+    const providerStatus = leaflet.control({ position: 'topright' });
+    let statusElement;
+    providerStatus.onAdd = () => {
+      statusElement = leaflet.DomUtil.create('div', 'map-provider-status leaflet-control');
+      statusElement.setAttribute('role', 'status');
+      statusElement.setAttribute('aria-live', 'polite');
+      statusElement.hidden = Boolean(providerAvailable);
+      return statusElement;
+    };
+    providerStatus.addTo(map);
+    const showProviderStatus = (message) => {
+      if (statusElement) {
+        statusElement.textContent = message;
+        statusElement.hidden = false;
+      }
+      const messageElement = element.closest('.card-body')?.querySelector('[data-map-message]');
+      if (messageElement) messageElement.textContent = message;
+    };
+    if (providerAvailable) {
+      const attribution = mapConfig.provider === 'MapTiler'
+        ? '<a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener noreferrer">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>'
+        : `<a href="${escapeHTML(mapConfig.attributionUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(mapConfig.attribution)}</a>`;
+      base = leaflet.tileLayer(mapConfig.url, {
+        maxZoom: mapConfig.maxZoom || 19,
+        attribution
+      });
+      let tileFailureHandled = false;
+      base.on('tileerror', () => {
+        if (tileFailureHandled) return;
+        tileFailureHandled = true;
+        base.off('tileerror');
+        base.remove();
+        if (layerControl) layerControl.removeLayer(base);
+        showProviderStatus(`${mapConfig.provider} tiles are unavailable. Automatic retries are disabled; project and wilaya data remain available.`);
+      });
+      base.addTo(map);
+      if (mapConfig.provider === 'MapTiler' && mapConfig.logoUrl) {
+        const logoControl = leaflet.control({ position: 'bottomleft' });
+        logoControl.onAdd = () => {
+          const link = leaflet.DomUtil.create('a', 'map-provider-logo leaflet-control');
+          link.href = 'https://www.maptiler.com/';
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.setAttribute('aria-label', 'MapTiler');
+          const image = document.createElement('img');
+          image.src = mapConfig.logoUrl;
+          image.alt = 'MapTiler';
+          link.append(image);
+          return link;
+        };
+        logoControl.addTo(map);
+      }
+    } else {
+      showProviderStatus('Map tiles are not configured. Set MAPTILER_API_KEY or a custom MAP_TILE_URL with attribution; project and wilaya data remain available.');
+    }
     const wilayaLayer = leaflet.layerGroup();
     const statusLayers = {
       'Projets · En cours': leaflet.layerGroup(),
@@ -1194,8 +1254,7 @@ function initializeLeafletMaps(root) {
       });
       marker.bindPopup(`<div class="leaflet-project-popup"><strong>${escapeHTML(project.name)}</strong><span>${escapeHTML(project.id)} · ${escapeHTML(project.sector)}</span><span>${escapeHTML(project.wilayas.join(', '))} · ${escapeHTML(status)}</span><span>Physique ${referenceNumber(project.physical, 1)} % · financier ${referenceNumber(project.financial, 1)} %</span><span>AE ${referenceNumber(project.aeCurrent)} Md DA · échéance ${escapeHTML(project.contractualEnd)}</span><span>${referenceAlerts(project).length} alerte(s) · situation au ${referenceSource.situationDate}</span><button type="button" class="btn btn-sm btn-primary mt-2" data-reference-project="${project.slug}">Ouvrir la fiche projet</button></div>`);
       marker.on('click', () => {
-        state.selectedMapProject = project.slug;
-        if (state.page === 'map') renderCurrentPage();
+        selectMapProject(project.slug, false);
       });
       const layerKey = status === 'À l’arrêt'
         ? 'Projets · À l’arrêt'
@@ -1213,14 +1272,18 @@ function initializeLeafletMaps(root) {
           fillOpacity: 0.25
         });
         critical.bindTooltip(`Alerte critique · ${escapeHTML(project.id)}`);
+        critical.on('click', () => {
+          marker.openPopup();
+          selectMapProject(project.slug, false);
+        });
         criticalLayer.addLayer(critical);
       }
     });
     const isMini = element.classList.contains('leaflet-mini-map');
     if (!isMini) {
       wilayaLayer.addTo(map);
-      leaflet.control.layers(
-        { 'OpenStreetMap': base },
+      layerControl = leaflet.control.layers(
+        providerAvailable ? { [mapConfig.provider]: base } : {},
         {
           'Wilayas · repères indicatifs': wilayaLayer,
           ...statusLayers,
@@ -1251,9 +1314,48 @@ function initializeLeafletMaps(root) {
     if (state.mapFitRequested && element.id === 'national-leaflet-map') {
       map.fitBounds(leaflet.latLngBounds(visibleWilayas.map((item) => [item.lat, item.lon])), { padding: [24, 24] });
     }
-    leafMaps.push(map);
+    const fitPoints = [
+      ...visibleWilayas.map((item) => [item.lat, item.lon]),
+      ...visibleProjects.map((project) => project.coordinates)
+    ];
+    leafMaps.push({
+      map,
+      element,
+      markersBySlug: markerBySlug,
+      fitBounds: fitPoints.length ? leaflet.latLngBounds(fitPoints) : null
+    });
   });
   state.mapFitRequested = false;
+}
+
+function updateMapProjectSelection(project) {
+  document.querySelectorAll('[data-reference-map-project]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.referenceMapProject === project.slug);
+  });
+  const selection = document.querySelector('[data-map-selection]');
+  if (selection) {
+    selection.innerHTML = `<span class="eyebrow">Projet sélectionné</span><h6 class="mt-2 mb-1">${escapeHTML(project.name)}</h6><p class="small text-muted">${escapeHTML(project.id)} · ${escapeHTML(project.wilayas.join(', '))} · ${escapeHTML(project.sector)}</p>${referenceStatusBadge(project)}
+      <div class="project-fact mt-3"><span>AE actuelle</span><strong>${referenceNumber(project.aeCurrent)} Md DA</strong></div>
+      <div class="project-fact"><span>Avancement physique / financier</span><strong>${referenceNumber(project.physical, 1)} % / ${referenceNumber(project.financial, 1)} %</strong></div>
+      <div class="project-fact"><span>Fin contractuelle</span><strong>${escapeHTML(project.contractualEnd)}</strong></div>
+      <div class="project-fact"><span>Alertes actives</span><strong>${referenceAlerts(project).length}</strong></div>
+      <div class="project-fact"><span>Dernière situation</span><strong>${referenceSource.situationDate}</strong></div>
+      <button class="btn btn-primary w-100 mt-3" data-reference-project="${project.slug}">Ouvrir la fiche projet</button>`;
+  }
+}
+
+function selectMapProject(slug, focus = true) {
+  const project = referenceProjectBySlug(slug);
+  if (!project) return;
+  state.selectedMapProject = slug;
+  updateMapProjectSelection(project);
+  if (!focus) return;
+  const instance = leafMaps.find(({ element }) => element.id === 'national-leaflet-map');
+  const marker = instance?.markersBySlug.get(slug);
+  if (marker) {
+    instance.map.setView(project.coordinates, Math.max(instance.map.getZoom(), 7));
+    marker.openPopup();
+  }
 }
 
 function updateMenuToggleState() {
@@ -1543,13 +1645,14 @@ app.addEventListener('click', (event) => {
     return;
   }
   if (target.dataset.referenceMapProject) {
-    state.selectedMapProject = target.dataset.referenceMapProject;
-    renderCurrentPage();
+    selectMapProject(target.dataset.referenceMapProject);
     return;
   }
   if (target.hasAttribute('data-map-fit')) {
-    state.mapFitRequested = true;
-    renderCurrentPage();
+    const instance = leafMaps.find(({ element }) => element.id === 'national-leaflet-map');
+    if (instance?.fitBounds) {
+      instance.map.fitBounds(instance.fitBounds, { padding: [24, 24] });
+    }
     return;
   }
   if (target.hasAttribute('data-map-reset')) {

@@ -1437,6 +1437,34 @@ body {
   max-width: calc(100% - 1rem);
 }
 
+.map-provider-status {
+  max-width: min(320px, calc(100vw - 5rem));
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #d5dee4;
+  border-radius: 0.35rem;
+  background: rgb(255 255 255 / 96%);
+  color: #435563;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.map-provider-status[hidden] {
+  display: none;
+}
+
+.map-provider-logo {
+  display: block;
+  padding: 0.25rem 0.4rem;
+  background: #fff;
+}
+
+.map-provider-logo img {
+  display: block;
+  width: 82px;
+  height: auto;
+}
+
 .leaflet-project-popup {
   display: grid;
   max-width: min(320px, calc(100vw - 5rem));

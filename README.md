@@ -2,7 +2,7 @@
 
 CNED DIGITAL is a frontend-only institutional demonstration of a project governance and infrastructure investment monitoring platform. The UI preserves the supplied Sneat Bootstrap 5 layout, styles, assets, and responsive navigation.
 
-The role-based demo portfolio, KPI, alert, document, message, and field-report data is illustrative. Direction and PMO reference views separately show an attributed historical CNED sample. The application does not connect to an institutional backend, database, Ministry of Finance, Treasury, external messaging, or GPS. OpenStreetMap tiles are fetched for the map; demo authentication is local browser state and is not production security.
+The role-based demo portfolio, KPI, alert, document, message, and field-report data is illustrative. Direction and PMO reference views separately show an attributed historical CNED sample. The application does not connect to an institutional backend, database, Ministry of Finance, Treasury, external messaging, or GPS. Demo authentication is local browser state and is not production security.
 
 ## Run locally
 
@@ -13,7 +13,17 @@ npm install --legacy-peer-deps
 npm start
 ```
 
-The legacy template has peer-dependency constraints that require npm’s compatibility flag. Open [http://localhost:8080](http://localhost:8080). Python 3 is required for the static server. Leaflet is installed from the package manifest; the interactive basemap uses OpenStreetMap tiles and therefore needs an internet connection. If tiles cannot load, the local project and wilaya data remain available.
+The legacy template has peer-dependency constraints that require npm’s compatibility flag. Open [http://localhost:8080](http://localhost:8080). Python 3 is required for the static server. Leaflet is installed from the package manifest. The basemap defaults to an unconfigured state and makes no tile requests until a provider is configured; project markers and all local wilaya points remain interactive without tiles.
+
+### Configure map tiles
+
+For the recommended MapTiler provider, copy `.env.example` to `.env`, set `MAPTILER_API_KEY` to a key from your MapTiler account, then run `npm start` again. `prestart` generates the ignored `map-config.json` from environment variables, so the key is not committed. Browser tile requests necessarily expose the key to visitors: create a dedicated application key, restrict allowed HTTP origins to the app's local/staging/production domains, monitor quotas, and use a MapTiler plan that permits raster tiles for your deployment. `MAPTILER_STYLE` defaults to `streets-v2`.
+
+Alternatively, set `MAP_TILE_URL`, `MAP_TILE_ATTRIBUTION`, and `MAP_TILE_ATTRIBUTION_URL` for another HTTPS XYZ provider. The URL must contain `{z}`, `{x}`, and `{y}`. The public OpenStreetMap tile servers are explicitly rejected as a custom provider.
+
+MapTiler attribution and its logo (for free accounts) are displayed on maps. MapTiler requires customers to use their own key and prohibits bulk tile downloading and server-side caching/redistribution; this app does not proxy or cache tiles and requests them directly from the provider. See the [MapTiler API key guidance](https://docs.maptiler.com/guides/credentials/api-key/), [attribution guidance](https://docs.maptiler.com/guides/map-design/attribution/add-attribution/), and [Cloud terms](https://www.maptiler.com/terms/cloud/). Tile access requires an internet connection. If no provider is configured or a provider fails, a visible status message appears and local project/wilaya overlays stay available; failed tile layers are removed without automatic retry.
+
+The previous basemap used Leaflet's `{s}.tile.openstreetmap.org` subdomain template. OSM's [tile policy](https://operations.osmfoundation.org/policies/tiles/) specifies the canonical `https://tile.openstreetmap.org/{z}/{x}/{y}.png` endpoint, warns that alternate subdomains may be withdrawn, and reserves the right to block use that degrades the volunteer service. The 403 establishes that the request was blocked, but the response alone does not identify whether the trigger was host choice, traffic, or another policy condition. CNED DIGITAL no longer requests tiles from OSM's public servers.
 
 ## Demo accounts
 
@@ -34,7 +44,7 @@ The login page includes a development-only account list. All accounts use the de
 
 The historical CNED dashboard sample is in `data/cned-reference.js` and is dated 30 June 2025. It contains 11 detailed projects; the national portfolio totals are reported separately for 51 projects and must not be interpreted as totals calculated from the 11-project sample. Missing source values are shown as unavailable rather than inferred. PMO field updates are browser-local demonstration data and are not submitted to an institutional system.
 
-The 69 bilingual wilaya records in `data/wilayas.js` use indicative points derived from the [Algeria-Cities dataset](https://github.com/ihahachi/Algeria-Cities) (MIT). They are not administrative boundaries, and regional groupings are for map filtering only. Map tiles are provided by OpenStreetMap and are not bundled with the application.
+The 69 bilingual wilaya records in `data/wilayas.js` use indicative points derived from the [Algeria-Cities dataset](https://github.com/ihahachi/Algeria-Cities) (MIT). They are not administrative boundaries, and regional groupings are for map filtering only. Map tiles are provided by the configured basemap provider and are not bundled with the application.
 
 The login image is Chris Hunkeler’s [Maqam Echahid photograph](https://commons.wikimedia.org/wiki/File:Martyrs%27_Memorial_seen_from_Le_Jardin_d%27Essai_(34985839343).jpg), used under CC BY-SA 2.0; attribution is also displayed on the login screen.
 
