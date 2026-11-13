@@ -1,6 +1,18 @@
 import { alertInstances, conversations, demoAccounts, documents, portfolioValues, projects } from './data/demo.js';
+import {
+  djendjenOperationalFields,
+  djendjenTechnicalLots,
+  pendingAmendments,
+  referenceAlerts,
+  referenceProjects,
+  referenceSource,
+  referenceStatus,
+  referenceSummary
+} from './data/cned-reference.js';
+import { wilayas, wilayaSource } from './data/wilayas.js';
 
 const app = document.querySelector('#app');
+let leafMaps = [];
 const saved = (key, fallback, storage = localStorage) => {
   const raw = storage.getItem(key);
   if (!raw) return fallback;
@@ -40,11 +52,14 @@ const state = {
   reportPeriod: saved('cned-report-period', '12 derniers mois'),
   selectedMapProject: null,
   mapView: 'map',
+  referenceProjectTab: 'synthese',
+  referenceProjectId: 'djendjen',
   selectedConversation: 'project-001',
   tablePages: {},
   alertChanges: saved('cned-alert-changes', {}),
   localDocuments: saved('cned-local-documents', []),
   fieldReports: saved('cned-field-reports', []),
+  referenceOperationalUpdates: saved('cned-reference-field-updates', {}),
   messages: saved('cned-messages', {}),
   notificationsRead: saved('cned-notifications-read', []),
   globalSearch: '',
@@ -65,7 +80,7 @@ const roles = {
   pmo: {
     name: 'CNED / PMO',
     workspace: 'I7 · Pilotage CNED',
-    nav: ['dashboard', 'portfolio', 'kpis', 'alerts', 'finance', 'planning', 'map', 'documents', 'messages', 'reports', 'notifications'],
+    nav: ['dashboard', 'reference-project', 'portfolio', 'kpis', 'alerts', 'finance', 'planning', 'map', 'documents', 'messages', 'reports', 'notifications'],
     intro: 'Analyse du portefeuille, fiabilité des données et coordination des actions.',
     projectAction: 'Pilotage analytique'
   },
@@ -117,7 +132,8 @@ const pageMeta = {
   documents: ['Documents', 'bx-folder-open'],
   messages: ['Communication', 'bx-message-rounded-dots'],
   reports: ['Rapports & analyses', 'bx-file'],
-  notifications: ['Notifications', 'bx-notification']
+  notifications: ['Notifications', 'bx-notification'],
+  'reference-project': ['Espace projet · Djendjen', 'bx-building-house']
 };
 
 const translations = {
@@ -153,7 +169,8 @@ const translations = {
     'Catalogue des indicateurs': 'دليل المؤشرات',
     'Aucune alerte active dans votre périmètre.': 'لا توجد تنبيهات نشطة ضمن نطاقك.',
     Portefeuille: 'المحفظة',
-    'Nouvelle alerte': 'تنبيه جديد'
+    'Nouvelle alerte': 'تنبيه جديد',
+    'Espace projet · Djendjen': 'مساحة المشروع · جيجل'
   }
 };
 
@@ -325,7 +342,90 @@ function smallProjectRows(items, limit = 5) {
   return rows.map((project) => `<tr><td><button class="btn btn-link p-0 text-start table-project-name" data-project-id="${escapeHTML(project.id)}">${escapeHTML(project.name)}</button><span class="table-project-meta">${escapeHTML(project.id)} · ${escapeHTML(project.owner)}</span></td><td>${escapeHTML(project.wilaya)}</td><td><div class="d-flex align-items-center gap-2"><div class="progress-slim"><span style="width:${project.physical}%"></span></div>${project.physical} %</div></td><td>${canViewFinancialData() ? money(project.budgetRevised) : '—'}</td><td>${projectStatus(project)}</td></tr>`).join('');
 }
 
+const referenceProjectBySlug = (slug) => referenceProjects.find((project) => project.slug === slug);
+const referenceNumber = (value, digits = 3) => value == null
+  ? 'Information indisponible'
+  : new Intl.NumberFormat('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+const referenceStatusBadge = (project) => {
+  const status = referenceStatus(project);
+  const color = status === 'À l’arrêt' ? 'red' : status === 'En retard' ? 'orange' : 'green';
+  return statusPill(color, status);
+};
+const referenceSourceNote = () => `<div class="reference-source-note"><i class="bx bx-info-circle"></i><span><strong>${escapeHTML(referenceSource.status)}</strong> · Situation au ${escapeHTML(referenceSource.situationDate)} · Source : ${escapeHTML(referenceSource.label)}. Les données détaillées portent sur 11 projets ; le portefeuille complet en compte ${referenceSource.portfolioProjectCount}.</span></div>`;
+
+function referenceExecutiveDashboard() {
+  const summary = referenceSummary();
+  const weightedGap = summary.weightedFinancial - summary.weightedPhysical;
+  const ordered = [...referenceProjects].sort((a, b) => (b.financial - b.physical) - (a.financial - a.physical));
+  const projectsTable = referenceProjects.map((project) => `<tr>
+    <td><button class="btn btn-link p-0 text-start table-project-name" data-reference-project="${project.slug}">${escapeHTML(project.name)}</button><span class="table-project-meta">${escapeHTML(project.id)}</span></td>
+    <td>${escapeHTML(project.sector)}</td><td>${escapeHTML(project.wilayas.join(', '))}</td>
+    <td class="text-end">${referenceNumber(project.aeInitial)}</td><td class="text-end">${referenceNumber(project.aeCurrent)}</td>
+    <td class="text-end">${referenceNumber(project.committed)}</td><td class="text-end">${referenceNumber(project.paid)}</td>
+    <td class="text-end">${referenceNumber(project.physical, 2)} %</td><td class="text-end">${referenceNumber(project.financial, 2)} %</td>
+    <td class="text-end">${referenceNumber(project.timeConsumed, 2)} %</td><td>${referenceStatusBadge(project)}</td>
+    <td>${escapeHTML(project.startDate)}</td><td>${project.initialDurationMonths} mois</td><td>${referenceNumber(project.currentDurationMonths, 1)} mois</td><td>${escapeHTML(project.contractualEnd)}</td>
+    <td>${referenceNumber(project.worksContract)}</td><td>${referenceNumber(project.pendingAmendment)}</td>
+    <td>${escapeHTML(project.contractor)}</td><td>${escapeHTML(project.bet)}</td><td>${escapeHTML(project.control)}</td>
+    <td>${escapeHTML(project.observation)}</td><td>${escapeHTML(project.recommendation)}</td>
+  </tr>`).join('');
+  const alerts = summary.alerts.slice().sort((a, b) => (a.severity === 'Critique' ? 0 : 1) - (b.severity === 'Critique' ? 0 : 1));
+  const alertRows = alerts.map((item) => `<tr>
+    <td>${statusPill(item.severity === 'Critique' ? 'red' : 'orange', item.severity)}</td>
+    <td><button class="btn btn-link p-0 text-start table-project-name" data-reference-project="${item.project.slug}">${escapeHTML(item.project.name)}</button></td>
+    <td>${escapeHTML(item.title)}</td><td>${escapeHTML(item.project.observation)}</td><td>${escapeHTML(item.action)}</td>
+  </tr>`).join('');
+  const amendmentRows = pendingAmendments.map((item) => `<tr><td>${escapeHTML(item.project)}</td><td>${escapeHTML(item.object)}</td><td class="text-end">${item.amount == null ? 'Information indisponible' : referenceNumber(item.amount)}</td><td>${escapeHTML(item.status)}</td></tr>`).join('');
+  const actions = referenceProjects.filter((project) => project.recommendation !== 'Aucune recommandation dans la fiche CNED.').map((project) => `<div class="reference-action-row">
+    <div><strong>${escapeHTML(project.name)}</strong><span>${escapeHTML(project.recommendation)}</span></div>${referenceStatusBadge(project)}
+    <button class="btn btn-sm btn-outline-primary" data-reference-project="${project.slug}">Consulter</button>
+  </div>`).join('');
+  const progressBars = ordered.map((project) => {
+    const gap = project.financial - project.physical;
+    const width = Math.min(100, Math.abs(gap) * 2);
+    const color = gap > 0 ? 'bg-danger' : 'bg-info';
+    return `<div class="reference-progress-row"><span>${escapeHTML(project.name)}</span><div class="progress"><div class="progress-bar ${color}" style="width:${width}%"></div></div><strong>${gap > 0 ? '+' : '−'}${referenceNumber(Math.abs(gap), 1)} pts</strong></div>`;
+  }).join('');
+  return `${pageHeading('Lecture décisionnelle · portefeuille CNED', 'Arbitrages, risques et exécution des projets · situation de référence au 30 juin 2025', '<button class="btn btn-outline-primary btn-sm" data-nav="map"><i class="bx bx-map me-1"></i>Carte nationale</button>')}
+    ${referenceSourceNote()}
+    <section class="reference-decision-banner mb-4">
+      <span class="eyebrow">Lecture décisionnelle</span>
+      <h5>${summary.stoppedCount} projets à l’arrêt · ${summary.delayedCount} en retard parmi les ${referenceProjects.length} projets détaillés</h5>
+      <p>Les paiements (${referenceNumber(summary.weightedFinancial, 1)} %) et l’avancement physique (${referenceNumber(summary.weightedPhysical, 1)} %) pondérés par l’AE sont proches (${weightedGap >= 0 ? '+' : '−'}${referenceNumber(Math.abs(weightedGap), 1)} point), mais cet équilibre masque des écarts par projet. ${referenceNumber(referenceSource.pendingApprovals)} Md DA d’avenants et réévaluations sont en attente d’approbation. Les engagements non payés présentés ci-dessous sont calculés sur l’échantillon détaillé, et non sur les 51 projets du portefeuille complet.</p>
+    </section>
+    <div class="row g-3 mb-4">
+      ${[
+        ['AE · portefeuille complet', `${referenceNumber(referenceSource.portfolioAe, 1)} Md DA`, '51 projets · référence nationale'],
+        ['AE · projets détaillés', `${referenceNumber(summary.totalAe, 1)} Md DA`, `${referenceProjects.length} projets sur 51 · échantillon`],
+        ['Payé · échantillon détaillé', `${referenceNumber(summary.totalPaid, 1)} Md DA`, 'Calculé sur les 11 fiches disponibles'],
+        ['Engagé non payé · échantillon', `${referenceNumber(summary.unpaidCommitments, 1)} Md DA`, 'Engagements moins paiements · 11 projets'],
+        ['Avenants en attente', `${referenceNumber(referenceSource.pendingApprovals, 3)} Md DA`, 'Montants connus dans la synthèse CNED'],
+        ['Factures en attente', 'Information indisponible', 'Non fourni par la source']
+      ].map(([label, value, note]) => `<div class="col-12 col-sm-6 col-xl-4"><div class="card reference-kpi-card h-100"><div class="card-body"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong><small>${escapeHTML(note)}</small></div></div></div>`).join('')}
+    </div>
+    <div class="row g-4 mb-4">
+      <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header">Avancement physique et financier · pondéré par l’AE</div><div class="card-body">
+        ${horizontalBars([
+          { label: 'Avancement physique', value: summary.weightedPhysical, display: `${referenceNumber(summary.weightedPhysical, 1)} %` },
+          { label: 'Avancement financier', value: summary.weightedFinancial, display: `${referenceNumber(summary.weightedFinancial, 1)} %` }
+        ])}
+        <div class="access-note mt-3">Écart global : ${weightedGap >= 0 ? '+' : '−'}${referenceNumber(Math.abs(weightedGap), 1)} point. Vert : paiements en avance sur l’avancement physique ; bleu : paiements en retard.</div>
+        <h6 class="mt-4">Écart par projet · financier moins physique</h6>${progressBars}
+      </div></div></div>
+      <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header d-flex justify-content-between align-items-center"><span>Distribution territoriale · 69 wilayas</span><button class="btn btn-sm btn-link" data-nav="map">Ouvrir la carte</button></div><div class="card-body"><div class="leaflet-mini-map" data-leaflet-map="executive" data-map-mode="reference"></div><p class="small text-muted mt-2 mb-0">Points géographiques indicatifs ; aucune limite administrative n’est dessinée.</p></div></div></div>
+    </div>
+    <div class="card mb-4"><div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><span>Portefeuille détaillé · ${referenceProjects.length} projets</span><span class="small text-muted">Tous les montants détaillés en Md DA · données au 30/06/2025</span></div><div class="table-responsive"><table class="table table-enterprise reference-wide-table"><thead><tr>
+      <th>Projet / référence</th><th>Secteur</th><th>Wilaya(s)</th><th>AE initiale</th><th>AE actuelle</th><th>Engagé</th><th>Payé</th><th>Physique</th><th>Financier</th><th>Délai consommé</th><th>État</th><th>Début</th><th>Durée initiale</th><th>Durée en vigueur</th><th>Fin contractuelle</th><th>Marché travaux</th><th>Avenant en attente</th><th>Contractant</th><th>BET</th><th>Contrôle</th><th>Constat CNED</th><th>Recommandation</th>
+    </tr></thead><tbody>${projectsTable}</tbody></table></div></div>
+    <div class="card mb-4"><div class="card-header">Registre des alertes stratégiques</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Priorité</th><th>Projet</th><th>Signal</th><th>Constat</th><th>Action recommandée</th></tr></thead><tbody>${alertRows}</tbody></table></div></div>
+    <div class="row g-4 mb-4">
+      <div class="col-12 col-xl-7"><div class="card h-100"><div class="card-header">Avenants et réévaluations en attente</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Projet</th><th>Objet</th><th>Montant (Md DA)</th><th>Situation</th></tr></thead><tbody>${amendmentRows}<tr><td colspan="2"><strong>Total de la source</strong></td><td class="text-end"><strong>${referenceNumber(referenceSource.pendingApprovals)}</strong></td><td>Montants indisponibles exclus du total</td></tr></tbody></table></div></div></div>
+      <div class="col-12 col-xl-5"><div class="card h-100"><div class="card-header">Actions et arbitrages recommandés</div><div class="card-body">${actions}</div></div></div>
+    </div>`;
+}
+
 function roleDashboard() {
+  if (roleKeyFor(state.user) === 'direction') return referenceExecutiveDashboard();
   const scoped = allScopedProjects();
   const totalBudget = sum(scoped, (project) => project.budgetRevised);
   const delayed = scoped.filter((project) => ['En retard', 'À l’arrêt'].includes(project.status));
@@ -402,6 +502,195 @@ function roleDashboard() {
     secondPanel = `<div class="row g-4 mt-0"><div class="col-xl-8"><div class="card"><div class="card-header">Projets du périmètre financier</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Projet / référence</th><th>Wilaya</th><th>AE actuelle</th><th>Progression financière</th><th>État</th></tr></thead><tbody>${smallProjectRows(scoped, 5)}</tbody></table></div></div></div><div class="col-xl-4"><div class="card"><div class="card-header">Repères financiers</div><div class="card-body"><div class="row g-3">${['FI1', 'FI3', 'FI4', 'FI5'].map((id) => kpiMetric(id)).join('')}</div></div></div></div></div>`;
   }
   return `${pageHeader}${demoBanner()}<div class="row g-4 mb-4">${cards}</div>${focus}${secondPanel}`;
+}
+
+const referenceFact = (label, value, note = '') => `<div class="project-fact"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value == null || value === '' ? 'Information indisponible' : value)}</strong>${note ? `<small class="text-muted">${escapeHTML(note)}</small>` : ''}</div>`;
+const referenceProgress = (label, value, suffix = '%') => `<div class="reference-lot-progress"><div class="d-flex justify-content-between gap-2"><strong>${escapeHTML(label)}</strong><span>${escapeHTML(`${referenceNumber(value, 1)} ${suffix}`)}</span></div><div class="progress"><div class="progress-bar" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100" style="width:${Math.max(0, Math.min(100, value))}%"></div></div></div>`;
+
+function referencePmoPage() {
+  const project = referenceProjectBySlug(state.referenceProjectId) || referenceProjectBySlug('djendjen');
+  if (!project) return '<div class="empty-state">La fiche de référence n’est pas disponible.</div>';
+  const aeRatio = project.aeCurrent / project.aeInitial;
+  const durationRatio = project.currentDurationMonths / project.initialDurationMonths;
+  const remainingDuration = project.currentDurationMonths * (1 - project.timeConsumed / 100);
+  const observedCadence = project.physical / (project.currentDurationMonths * project.timeConsumed / 100);
+  const requiredCadence = (100 - project.physical) / remainingDuration;
+  const tabs = [
+    ['synthese', 'Synthèse'], ['technique', 'Avancement technique'], ['chantier', 'Données de chantier'],
+    ['contrats', 'Marchés & contrats'], ['finances', 'Suivi financier'], ['delais', 'Délais & planning'],
+    ['risques', 'Blocages & risques'], ['kpi', 'KPI & Alertes'], ['documents', 'Documents'],
+    ['discussions', 'Discussions'], ['historique', 'Historique']
+  ];
+  const nav = `<div class="reference-tabs" role="tablist">${tabs.map(([id, label]) => `<button type="button" class="${state.referenceProjectTab === id ? 'active' : ''}" data-reference-project-tab="${id}" role="tab" aria-selected="${state.referenceProjectTab === id}">${escapeHTML(label)}</button>`).join('')}</div>`;
+  let content = '';
+  if (state.referenceProjectTab === 'synthese') {
+    content = `<div class="row g-3 mb-4">${[
+      ['Avancement physique', `${referenceNumber(project.physical, 2)} %`, 'Travaux exécutés'],
+      ['Avancement financier', `${referenceNumber(project.financial, 2)} %`, 'Paiements sur le marché travaux'],
+      ['Délai consommé', `${referenceNumber(project.timeConsumed, 2)} %`, 'Durée contractuelle'],
+      ['Complétude terrain', 'À compléter', 'Données opérationnelles à fournir / valider'],
+      ['AE actuelle', `${referenceNumber(project.aeCurrent)} Md DA`, 'AE initiale : 90 Md DA'],
+      ['Engagé / payé', `${referenceNumber(project.committed)} / ${referenceNumber(project.paid)} Md DA`, 'Référence au 30/06/2025'],
+      ['Avenant en attente', `${referenceNumber(project.pendingAmendment)} Md DA`, 'Approbation requise']
+    ].map(([label, value, note]) => `<div class="col-12 col-sm-6 col-xl-4"><div class="card reference-kpi-card h-100"><div class="card-body"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong><small>${escapeHTML(note)}</small></div></div></div>`).join('')}</div>
+    <div class="row g-4"><div class="col-12 col-xl-7"><div class="card h-100"><div class="card-header">Synthèse décisionnelle du projet</div><div class="card-body">
+      <div class="reference-decision-banner compact"><h6>Le délai consommé (${referenceNumber(project.timeConsumed, 0)} %) dépasse l’avancement physique (${referenceNumber(project.physical, 0)} %) de ${referenceNumber(project.timeConsumed - project.physical, 0)} points.</h6><p>Le rythme requis pour achever les travaux est d’environ ${referenceNumber(requiredCadence, 2)} points par mois contre ${referenceNumber(observedCadence, 2)} observé. La source signale des emprises et réseaux non achevés ; le périmètre et le coût de la section PK 34–38 nécessitent un arbitrage.</p></div>
+      ${referenceFact('Constat CNED', project.observation)}
+      ${referenceFact('Recommandation CNED', project.recommendation)}
+      <div class="mt-3"><div class="leaflet-mini-map" data-leaflet-map="pmo-project" data-map-mode="project" data-project-slug="${project.slug}"></div><small class="text-muted">Point de référence fourni dans la fiche ; tracé linéaire non disponible.</small></div>
+    </div></div></div><div class="col-12 col-xl-5"><div class="card h-100"><div class="card-header">Acteurs du projet</div><div class="card-body">
+      ${referenceFact('Maître d’ouvrage', 'À renseigner')}
+      ${referenceFact('Bureau d’études (BET)', project.bet)}
+      ${referenceFact('Organisme de contrôle', 'À renseigner')}
+      ${referenceFact('Bureau de contrôle et suivi (BCS)', project.control)}
+      ${referenceFact('Contractant', project.contractor)}
+      <div class="access-note mt-3">Les organismes sont repris de la synthèse CNED. Aucun nom de responsable individuel n’est fourni.</div>
+    </div></div></div></div>`;
+  } else if (state.referenceProjectTab === 'technique') {
+    content = `<div class="row g-4"><div class="col-12 col-xl-7"><div class="card"><div class="card-header">Avancement technique par lot · référence CNED</div><div class="card-body">${djendjenTechnicalLots.map((lot) => referenceProgress(lot.name, lot.progress)).join('')}${referenceProgress('Avancement global', project.physical)}</div></div></div>
+      <div class="col-12 col-xl-5"><div class="card"><div class="card-header">Lecture technique</div><div class="card-body">${referenceFact('Point d’attention', 'Libération des emprises et déplacement des réseaux non achevés.')}${referenceFact('Section PK 34–38', 'Consistance et coût à arrêter.')}${referenceFact('Dernière donnée technique', 'Situation au 30/06/2025')}${referenceFact('Observations détaillées de lot', 'À renseigner / à valider par le maître d’ouvrage.')}</div></div></div></div>`;
+  } else if (state.referenceProjectTab === 'chantier') {
+    content = `<div class="card mb-4"><div class="card-header">Données opérationnelles et suivi terrain</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Groupe</th><th>Donnée attendue</th><th>État de la donnée</th><th>Valeur / prochaine action</th></tr></thead><tbody>${djendjenOperationalFields.map((field) => {
+      const update = state.referenceOperationalUpdates[`${project.slug}:${field.name}`];
+      return `<tr><td>${escapeHTML(field.group)}</td><td class="primary-cell">${escapeHTML(field.name)}</td><td>${statusPill(update ? 'orange' : field.status === 'Arbitrage requis' ? 'red' : field.status === 'À valider' ? 'orange' : 'info', update ? 'Saisie locale · à valider' : field.status)}</td><td>${update ? escapeHTML(update.value) : field.group === 'Section PK 34–38' ? escapeHTML(project.recommendation) : 'À fournir par le maître d’ouvrage'}</td></tr>`;
+    }).join('')}</tbody></table></div><div class="card-body"><div class="access-note">Les valeurs issues de la synthèse CNED restent immuables. Toute saisie ci-dessous est locale au navigateur et porte le statut « à valider » jusqu’à confirmation institutionnelle.</div></div></div>
+    <div class="card"><div class="card-header">Déclarer une donnée de chantier · saisie de démonstration</div><div class="card-body"><form data-form="reference-field-update">
+      <label class="form-label" for="reference-field-name">Donnée à actualiser</label><select class="form-select" id="reference-field-name" name="field" required>${djendjenOperationalFields.map((field) => `<option value="${escapeHTML(field.name)}">${escapeHTML(field.group)} · ${escapeHTML(field.name)}</option>`).join('')}</select>
+      <label class="form-label mt-3" for="reference-field-value">Valeur déclarée</label><textarea class="form-control" id="reference-field-value" name="value" rows="3" maxlength="1000" required></textarea>
+      <button class="btn btn-primary mt-3" type="submit">Enregistrer pour validation</button>
+    </form></div></div>`;
+  } else if (state.referenceProjectTab === 'contrats') {
+    content = `<div class="row g-4"><div class="col-12 col-xl-6"><div class="card"><div class="card-header">Marché de travaux et ordres de service</div><div class="card-body">
+      ${referenceFact('Procédure de passation', 'Information indisponible')}
+      ${referenceFact('Numéro de marché', 'Information indisponible')}
+      ${referenceFact('Ordre de service de démarrage', project.startDate)}
+      ${referenceFact('Durée initiale', `${project.initialDurationMonths} mois`)}
+      ${referenceFact('Durée en vigueur', `${project.currentDurationMonths} mois`)}
+      ${referenceFact('Fin contractuelle', project.contractualEnd)}
+      ${referenceFact('Titulaire / groupement', project.contractor)}
+      ${referenceFact('Substitution', 'ETRHB remplacé par MAPA (selon la fiche CNED)')}
+    </div></div></div><div class="col-12 col-xl-6"><div class="card"><div class="card-header">Avenants, garanties et réception</div><div class="card-body">
+      ${referenceFact('Avenant n°14 travaux', 'En attente · montant indiqué dans la source avec le contrôle')}
+      ${referenceFact('Avenant n°08 contrôle', 'En attente · montant indiqué dans la source avec les travaux')}
+      ${referenceFact('Montant en attente', `${referenceNumber(project.pendingAmendment)} Md DA`)}
+      ${referenceFact('Ordres d’arrêt et de reprise', 'Information indisponible')}
+      ${referenceFact('Garantie de bonne exécution / assurances', 'Information indisponible')}
+      ${referenceFact('Prolongations légitimes / retards imputables', 'À instruire')}
+      ${referenceFact('Mises en demeure, réclamations et litiges', 'Information indisponible')}
+      ${referenceFact('Réceptions partielles et justificatifs', 'Information indisponible')}
+    </div></div></div></div>`;
+  } else if (state.referenceProjectTab === 'finances') {
+    content = `<div class="row g-4"><div class="col-12 col-xl-6"><div class="card"><div class="card-header">Autorisations d’engagement et exécution</div><div class="card-body">
+      ${referenceFact('AE initiale', `${referenceNumber(project.aeInitial)} Md DA`)}
+      ${referenceFact('AE actuelle', `${referenceNumber(project.aeCurrent)} Md DA`)}
+      ${referenceFact('Évolution de l’AE', `× ${referenceNumber(aeRatio, 2)} depuis l’inscription`)}
+      ${referenceFact('Engagements cumulés', `${referenceNumber(project.committed)} Md DA`)}
+      ${referenceFact('Paiements cumulés', `${referenceNumber(project.paid)} Md DA`)}
+      ${referenceFact('Engagé non payé', `${referenceNumber(project.committed - project.paid)} Md DA`)}
+      ${referenceFact('Réévaluation / avenant en attente', `${referenceNumber(project.pendingAmendment)} Md DA`)}
+    </div></div></div><div class="col-12 col-xl-6"><div class="card"><div class="card-header">Marchés, situations et paiements</div><div class="card-body">
+      ${referenceFact('Marché travaux après avenants', `${referenceNumber(project.worksContract)} Md DA`)}
+      ${referenceFact('Paiements travaux', `${referenceNumber(project.paid)} Md DA`)}
+      ${referenceFact('Marché et paiements de contrôle / suivi', 'Information indisponible')}
+      ${referenceFact('Marché d’études', 'Information indisponible')}
+      ${referenceFact('Situations de travaux en attente', 'Information indisponible')}
+      ${referenceFact('Délai moyen de paiement / révisions de prix', 'Information indisponible')}
+      ${referenceFact('Pertes de change / crédits de paiement', 'Information indisponible')}
+      ${referenceFact('Avances à récupérer', 'Information indisponible')}
+    </div></div></div></div>`;
+  } else if (state.referenceProjectTab === 'delais') {
+    content = `<div class="row g-3 mb-4">${[
+      ['Durée initiale', `${project.initialDurationMonths} mois`],
+      ['Durée en vigueur', `${referenceNumber(project.currentDurationMonths, 1)} mois · × ${referenceNumber(durationRatio, 2)}`],
+      ['Délai consommé', `${referenceNumber(project.timeConsumed, 2)} %`],
+      ['Fin contractuelle', project.contractualEnd]
+    ].map(([label, value]) => `<div class="col-12 col-sm-6 col-xl-3"><div class="card reference-kpi-card h-100"><div class="card-body"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong><small>Situation au ${referenceSource.situationDate}</small></div></div></div>`).join('')}</div>
+    <div class="card"><div class="card-header">Cadence nécessaire pour terminer</div><div class="card-body">
+      ${referenceProgress('Délai consommé', project.timeConsumed)}
+      ${referenceProgress('Avancement physique', project.physical)}
+      ${referenceFact('Cadence observée', `${referenceNumber(observedCadence, 2)} points d’avancement / mois`)}
+      ${referenceFact('Cadence requise', `${referenceNumber(requiredCadence, 2)} points d’avancement / mois`)}
+      ${referenceFact('Rapport requis / observé', `× ${referenceNumber(requiredCadence / observedCadence, 2)}`)}
+      <div class="access-note mt-3">Calcul repris de la logique de la fiche de référence : le temps restant est la durée en vigueur × (1 − délai consommé). Cette projection est indicative et ne remplace pas un planning actualisé.</div>
+    </div></div>`;
+  } else if (state.referenceProjectTab === 'risques') {
+    const alerts = [
+      { title: `Dérive de l’AE : × ${referenceNumber(aeRatio, 2)}`, explanation: 'L’AE actuelle de 214,375 Md DA dépasse l’AE initiale de 90 Md DA.', action: 'Examiner la consistance et les réévaluations successives.' },
+      { title: `Durée en vigueur : × ${referenceNumber(durationRatio, 2)} la durée initiale`, explanation: '138 mois en vigueur contre 36 mois initiaux.', action: 'Vérifier les prolongations et leur part légitime.' },
+      { title: `Délai consommé supérieur de ${referenceNumber(project.timeConsumed - project.physical, 0)} points à l’avancement`, explanation: '91 % du délai consommé pour 62 % d’avancement physique.', action: 'Mettre à jour le planning et identifier les blocages institutionnels.' },
+      { title: `Cadence requise : × ${referenceNumber(requiredCadence / observedCadence, 2)} la cadence observée`, explanation: `${referenceNumber(requiredCadence, 2)} points par mois requis contre ${referenceNumber(observedCadence, 2)} observé.`, action: 'Réviser le plan de mobilisation et suivre les engagements.' },
+      { title: `Réévaluation en attente : ${referenceNumber(project.pendingAmendment)} Md DA`, explanation: 'Avenant n°14 travaux et n°08 contrôle dans l’attente d’approbation.', action: 'Obtenir l’approbation ou fixer une date limite.' }
+    ];
+    content = `<div class="card"><div class="card-header">Cinq alertes de référence · informations historiques</div><div class="card-body">${alerts.map((alert) => `<article class="reference-alert"><div>${statusPill('red', 'À arbitrer')}</div><div><strong>${escapeHTML(alert.title)}</strong><p>${escapeHTML(alert.explanation)}</p><small><b>Action :</b> ${escapeHTML(alert.action)}</small></div></article>`).join('')}
+      <h6 class="mt-4">Blocages opérationnels signalés</h6><p>${escapeHTML(project.observation)}</p><p class="mb-0"><strong>Recommandation :</strong> ${escapeHTML(project.recommendation)}</p>
+    </div></div>`;
+  } else if (state.referenceProjectTab === 'kpi') {
+    content = `<div class="card"><div class="card-header">Indicateurs utiles à la décision</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Indicateur</th><th>Valeur</th><th>État</th><th>Action / responsable</th></tr></thead><tbody>
+      <tr><td>Avancement physique</td><td>62 %</td><td>${statusPill('orange', 'À surveiller')}</td><td>Cadence chantier · maître d’ouvrage</td></tr>
+      <tr><td>Avancement financier</td><td>61,32 %</td><td>${statusPill('green', 'Proche du physique')}</td><td>Suivre le rapprochement des situations</td></tr>
+      <tr><td>Évolution de l’AE</td><td>× ${referenceNumber(aeRatio, 2)}</td><td>${statusPill('red', 'Critique')}</td><td>Arbitrage sur la consistance · autorité compétente</td></tr>
+      <tr><td>Dérive du délai</td><td>× ${referenceNumber(durationRatio, 2)}</td><td>${statusPill('red', 'Critique')}</td><td>Vérifier les prolongations légitimes</td></tr>
+      <tr><td>Cadence requise / observée</td><td>× ${referenceNumber(requiredCadence / observedCadence, 2)}</td><td>${statusPill('red', 'Critique')}</td><td>Actualiser le planning et le plan de mobilisation</td></tr>
+      <tr><td>Réévaluation en attente</td><td>${referenceNumber(project.pendingAmendment)} Md DA</td><td>${statusPill('orange', 'Important')}</td><td>Obtenir l’approbation · parties compétentes</td></tr>
+    </tbody></table></div><div class="card-body"><div class="access-note">Les définitions et seuils du catalogue KPI institutionnel restent dans le catalogue dédié. Les signaux ci-dessus proviennent uniquement de la fiche CNED de référence.</div></div></div>`;
+  } else if (state.referenceProjectTab === 'documents') {
+    content = `<div class="card"><div class="card-header">Documents et pièces justificatives</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Pièce</th><th>Situation</th><th>Source / action</th></tr></thead><tbody>
+      <tr><td>Rapport de synthèse CNED</td><td>${statusPill('green', 'Disponible')}</td><td>Situation au 30/06/2025 · septembre 2025</td></tr>
+      ${['Marché de travaux et avenants signés', 'Ordres de service d’arrêt / reprise', 'Garanties et polices d’assurance', 'Situations de travaux et paiements', 'Procès-verbaux de réception', 'Photos de terrain géolocalisées'].map((name) => `<tr><td>${escapeHTML(name)}</td><td>${statusPill('info', 'À téléverser')}</td><td>Information indisponible dans la synthèse</td></tr>`).join('')}
+    </tbody></table></div><div class="card-body"><div class="access-note">Les pièces absentes ne sont pas simulées. Les déposer dans l’espace documentaire du prototype reste une action locale de démonstration.</div><button class="btn btn-outline-primary btn-sm mt-3" data-nav="documents">Ouvrir les documents</button></div></div>`;
+  } else if (state.referenceProjectTab === 'discussions') {
+    content = `<div class="row g-4"><div class="col-12 col-xl-7"><div class="card"><div class="card-header">Actions de coordination tirées de la recommandation CNED</div><div class="card-body">
+      ${referenceFact('Emprises restantes', 'Coordonner avec autorités locales et gestionnaires de réseaux.')}
+      ${referenceFact('Section PK 34–38', 'Arrêter la consistance et le coût.')}
+      ${referenceFact('Responsables et échéances', 'À désigner par les parties compétentes.')}
+    </div></div></div><div class="col-12 col-xl-5"><div class="card"><div class="card-header">Communication de projet</div><div class="card-body"><p>Les échanges disponibles dans la plateforme restent des données locales de démonstration.</p><button class="btn btn-primary" data-nav="messages">Ouvrir la communication</button></div></div></div></div>`;
+  } else {
+    content = `<div class="card"><div class="card-header">Historique et traçabilité</div><div class="card-body">
+      ${referenceFact('Source', referenceSource.label)}
+      ${referenceFact('Date de situation', referenceSource.situationDate)}
+      ${referenceFact('Statut de la donnée', 'Donnée de référence historique · non actualisée en temps réel')}
+      ${referenceFact('Date de démarrage', project.startDate)}
+      ${referenceFact('Dernière actualisation métier connue', 'Information indisponible au-delà de la situation du 30/06/2025')}
+      <div class="access-note mt-3">Les indicateurs et alertes de cette fiche ne sont pas des données opérationnelles en direct.</div>
+    </div></div>`;
+  }
+  return `${pageHeading(project.name, `${project.id} · ${project.sector} · ${project.wilayas.join(', ')}`, '<button class="btn btn-outline-primary btn-sm" data-nav="dashboard"><i class="bx bx-arrow-back me-1"></i>Vision Direction</button>')}
+    ${referenceSourceNote()}
+    <div class="card mb-4"><div class="card-body pb-3"><div class="d-flex flex-wrap justify-content-between align-items-start gap-3"><div><span class="text-muted small">${escapeHTML(project.id)} · ${escapeHTML(project.sector)}</span><h5 class="mb-1">${escapeHTML(project.name)}</h5><span class="text-muted small">${escapeHTML(project.wilayas.join(', '))} · fin contractuelle : ${escapeHTML(project.contractualEnd)}</span></div>${referenceStatusBadge(project)}</div>
+      ${nav}<div class="pt-4">${content}</div>
+    </div></div>`;
+}
+
+function referenceProjectDetailPage() {
+  const project = referenceProjectBySlug(state.referenceProjectId);
+  if (!project) return '<div class="empty-state">La fiche de référence n’est pas disponible.</div>';
+  if (project.slug === 'djendjen') return referencePmoPage();
+  const fields = [
+    ['Référence', project.id], ['Secteur', project.sector], ['Wilaya(s)', project.wilayas.join(', ')],
+    ['Coordonnées (latitude, longitude)', project.coordinates.join(', ')], ['AE initiale', `${referenceNumber(project.aeInitial)} Md DA`],
+    ['AE actuelle', `${referenceNumber(project.aeCurrent)} Md DA`], ['Engagements', `${referenceNumber(project.committed)} Md DA`],
+    ['Paiements', `${referenceNumber(project.paid)} Md DA`], ['Avancement physique', `${referenceNumber(project.physical, 2)} %`],
+    ['Avancement financier', `${referenceNumber(project.financial, 2)} %`], ['Délai consommé', `${referenceNumber(project.timeConsumed, 2)} %`],
+    ['Date de démarrage', project.startDate], ['Durée initiale', `${project.initialDurationMonths} mois`],
+    ['Durée en vigueur', `${referenceNumber(project.currentDurationMonths, 1)} mois`], ['Fin contractuelle', project.contractualEnd],
+    ['Marché travaux', `${referenceNumber(project.worksContract)} Md DA`],
+    ['Avenant / réévaluation en attente', `${referenceNumber(project.pendingAmendment)} Md DA`],
+    ['Contractant', project.contractor], ['BET', project.bet], ['Contrôle / BCS', project.control]
+  ];
+  return `${pageHeading(project.name, `${project.id} · ${project.sector} · ${project.wilayas.join(', ')}`, '<button class="btn btn-outline-secondary btn-sm" data-nav="dashboard"><i class="bx bx-arrow-back me-1"></i>Retour</button>')}
+    ${referenceSourceNote()}
+    <div class="row g-4"><div class="col-12 col-xl-8"><div class="card"><div class="card-header">Données de la fiche projet</div><div class="card-body"><div class="row g-3">${fields.map(([label, value]) => `<div class="col-12 col-sm-6">${referenceFact(label, value)}</div>`).join('')}</div>
+      <div class="reference-decision-banner compact mt-4"><h6>Constat CNED</h6><p>${escapeHTML(project.observation)}</p><strong>Recommandation :</strong> ${escapeHTML(project.recommendation)}</div>
+    </div></div></div><div class="col-12 col-xl-4"><div class="card"><div class="card-header">État et localisation</div><div class="card-body">${referenceStatusBadge(project)}<p class="mt-3">${escapeHTML(project.wilayas.join(', '))}</p><div class="leaflet-mini-map" data-leaflet-map="reference-detail" data-map-mode="project" data-project-slug="${project.slug}"></div><small class="text-muted">Point indicatif de la fiche source ; aucun tracé de l’infrastructure n’est fourni.</small><button class="btn btn-primary w-100 mt-3" data-nav="map">Voir la carte nationale</button></div></div></div></div>`;
+}
+
+function referenceAlertRegister() {
+  const rows = referenceProjects.flatMap((project) => referenceAlerts(project).map((alert) => `<tr>
+    <td>${statusPill(alert.severity === 'Critique' ? 'red' : 'orange', alert.severity)}</td>
+    <td><button class="btn btn-link p-0 text-start table-project-name" data-reference-project="${project.slug}">${escapeHTML(project.name)}</button><span class="table-project-meta">${escapeHTML(project.id)}</span></td>
+    <td>${escapeHTML(alert.title)}</td><td>${escapeHTML(project.observation)}</td><td>${escapeHTML(alert.action)}</td>
+  </tr>`)).join('');
+  return `<div class="card mt-4"><div class="card-header">Alertes de référence · situation au ${referenceSource.situationDate}</div><div class="card-body pt-0"><p class="small text-muted">Signaux calculés à partir des 11 fiches CNED détaillées. Ils restent distincts des événements illustratifs actuels et ne constituent pas des données en temps réel.</p></div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Priorité</th><th>Projet</th><th>Signal</th><th>Constat source</th><th>Action recommandée</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 function kpiMetric(id) {
@@ -534,29 +823,70 @@ function fieldPage() {
 }
 
 function nationalMap(items, mini = false, focusId = null) {
-  const region = 'M153 103 218 75 277 83 331 99 368 88 417 111 456 107 493 132 523 164 555 193 568 232 589 262 579 302 600 336 583 371 600 400 574 433 542 441 517 463 488 474 460 491 425 489 398 503 361 490 334 509 299 493 271 477 238 476 216 451 187 433 197 401 177 376 190 343 174 313 190 281 180 250 198 220 189 185 170 153Z';
-  const visible = items;
-  const mapContent = `<defs><pattern id="map-grid" width="56" height="56" patternUnits="userSpaceOnUse"><path class="map-gridline" d="M56 0H0V56" fill="none"/></pattern></defs><rect width="700" height="560" fill="url(#map-grid)"/><path class="map-region" d="${region}"/><path d="M215 227c55-23 96-20 142-5M244 300c76-23 137-18 205 0M236 376c74-19 151-11 236 13" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="4 5" opacity=".8"/><text x="329" y="286" fill="#78918b" font-size="17" font-weight="600">ALGÉRIE</text><text x="340" y="309" fill="#91a49c" font-size="10">2 381 741 km²</text>${visible.map((project) => {
-    const [xNorm, yNorm] = project.coordinates;
-    const x = Math.round(193 + xNorm * 370);
-    const y = Math.round(126 + yNorm * 342);
-    const status = projectStatusClass(project.status);
-    const focused = project.id === focusId ? 'r="11"' : 'r="8"';
-    const label = mini ? '' : `<text x="${x + 12}" y="${y + 3}">${escapeHTML(project.wilaya)}</text>`;
-    return `<g class="map-marker ${status}" data-map-project="${escapeHTML(project.id)}" tabindex="0" role="button" aria-label="${escapeHTML(project.shortName)} · ${escapeHTML(project.wilaya)}"><circle cx="${x}" cy="${y}" ${focused}/>${label}</g>`;
-  }).join('')}`;
-  return `<svg viewBox="0 0 700 560" role="img" aria-label="Carte schématique de l’Algérie et des projets visibles">${mapContent}</svg>`;
+  const project = referenceProjects.find((entry) => entry.slug === focusId);
+  const visible = ['direction', 'pmo'].includes(roleKeyFor(state.user)) ? referenceProjects : [];
+  const filtered = visible.filter((entry) => !project || entry.slug === project.slug);
+  return `<div class="${mini ? 'leaflet-mini-map' : 'algeria-map'}" data-leaflet-map="embedded-${mini ? 'mini' : 'detail'}" data-map-mode="${project ? 'project' : 'reference'}" ${project ? `data-project-slug="${project.slug}"` : ''} data-project-list="${filtered.map((entry) => entry.slug).join(',')}"></div>`;
 }
 
 function mapPage() {
-  const scoped = allScopedProjects();
-  const filterWilaya = state.mapFilters?.wilaya || '';
-  const filterSector = state.mapFilters?.sector || '';
-  const visible = scoped.filter((project) => (!filterWilaya || project.wilaya === filterWilaya) && (!filterSector || project.sector === filterSector));
-  const selected = visible.find((project) => project.id === state.selectedMapProject) || visible[0];
-  if (selected) state.selectedMapProject = selected.id;
-  const projectList = visible.map((project) => `<button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ${selected?.id === project.id ? 'active' : ''}" data-map-project="${escapeHTML(project.id)}"><span><strong class="d-block small">${escapeHTML(project.shortName)}</strong><small>${escapeHTML(project.wilaya)} · ${escapeHTML(project.sector)}</small></span>${statusPill(projectStatusClass(project.status), project.status)}</button>`).join('');
-  return `${pageHeading('Carte nationale des projets', 'Cartographie locale schématique · marqueurs limités à votre périmètre', `<button class="btn btn-outline-secondary btn-sm" data-map-toggle><i class="bx bx-list-ul me-1"></i>${state.mapView === 'map' ? 'Vue liste' : 'Vue carte'}</button>`)}${demoBanner()}<div class="card"><div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3"><div><strong>Distribution territoriale</strong><span class="small text-muted ms-2">${visible.length} projets visibles · ${new Set(visible.map((project) => project.wilaya)).size} wilayas</span></div><form class="toolbar" data-form="map-filters"><select class="form-select form-select-sm" name="wilaya"><option value="">Toutes wilayas</option>${[...new Set(scoped.map((project) => project.wilaya))].map((item) => `<option ${filterWilaya === item ? 'selected' : ''}>${escapeHTML(item)}</option>`).join('')}</select><select class="form-select form-select-sm" name="sector"><option value="">Tous secteurs</option>${[...new Set(scoped.map((project) => project.sector))].map((item) => `<option ${filterSector === item ? 'selected' : ''}>${escapeHTML(item)}</option>`).join('')}</select><button class="btn btn-sm btn-outline-primary">Appliquer</button></form></div><div class="card-body"><div class="map-layout">${state.mapView === 'map' ? `<div class="algeria-map">${nationalMap(visible, false, selected?.id)}</div>` : `<div class="list-group">${projectList || '<div class="empty-state">Aucun projet dans ce filtre.</div>'}</div>`}<div><div class="map-legend mb-3"><span><i class="legend-dot" style="background:#bf5550"></i>Critique / à l’arrêt</span><span><i class="legend-dot" style="background:#d28a35"></i>À surveiller</span><span><i class="legend-dot" style="background:#428b6e"></i>En cours</span></div>${selected ? `<div class="map-selection"><span class="eyebrow">Projet sélectionné</span><h5 class="mt-2 mb-1">${escapeHTML(selected.shortName)}</h5><p class="small text-muted">${escapeHTML(selected.id)} · ${escapeHTML(selected.wilaya)} · ${escapeHTML(selected.sector)}</p>${projectStatus(selected)}<div class="project-fact mt-3"><span>AE actuelle</span><strong>${money(selected.budgetRevised)}</strong></div><div class="project-fact"><span>Avancement physique</span><strong>${selected.physical} %</strong><div class="progress-slim mt-2 w-100"><span style="width:${selected.physical}%"></span></div></div><div class="project-fact"><span>Avancement financier</span><strong>${selected.financial} %</strong></div><div class="project-fact"><span>Alertes actives visibles</span><strong>${currentInstances().filter((instance) => instance.projectId === selected.id).length}</strong></div><div class="project-fact"><span>Dernière mise à jour</span><strong>${shortDate(selected.updated)}</strong></div><button class="btn btn-primary w-100 mt-3" data-project-id="${escapeHTML(selected.id)}">Ouvrir le projet</button></div>` : '<div class="empty-state">Aucun projet dans ce périmètre.</div>'}<div class="small text-muted mt-4"><i class="bx bx-info-circle me-1"></i>Carte de démonstration hors ligne · coordonnées indicatives, aucun service cartographique externe.</div></div></div></div></div>`;
+  const filters = state.mapFilters || {};
+  const nationallyScoped = ['direction', 'pmo'].includes(roleKeyFor(state.user));
+  const mapProjects = nationallyScoped ? referenceProjects : [];
+  const visibleProjects = mapProjects.filter((project) => {
+    const wilayaMatch = !filters.wilaya || project.wilayas.includes(filters.wilaya);
+    const regionMatch = !filters.region || project.wilayas.some((name) => wilayas.some((item) => item.name === name && item.region === filters.region));
+    const sectorMatch = !filters.sector || project.sector === filters.sector;
+    const statusMatch = !filters.status || referenceStatus(project) === filters.status;
+    const queryMatch = !filters.query || `${project.name} ${project.id} ${project.sector} ${project.wilayas.join(' ')}`.toLowerCase().includes(filters.query.toLowerCase());
+    const budget = project.aeCurrent;
+    const budgetMatch = !filters.budget || (filters.budget === 'under-25' ? budget < 25 : filters.budget === '25-100' ? budget >= 25 && budget < 100 : budget >= 100);
+    const alertCount = referenceAlerts(project).filter((alert) => alert.severity === 'Critique').length;
+    const alertMatch = !filters.alertSeverity || (filters.alertSeverity === 'critical' ? alertCount > 0 : alertCount === 0);
+    return wilayaMatch && regionMatch && sectorMatch && statusMatch && queryMatch && budgetMatch && alertMatch;
+  });
+  const selected = visibleProjects.find((project) => project.slug === state.selectedMapProject) || visibleProjects[0] || null;
+  state.selectedMapProject = selected?.slug || null;
+  const selectedWilayas = filters.region ? wilayas.filter((item) => item.region === filters.region) : wilayas;
+  const projectList = visibleProjects.map((project) => `<button class="reference-map-project list-group-item list-group-item-action d-flex justify-content-between align-items-start gap-2 ${selected?.slug === project.slug ? 'active' : ''}" data-reference-map-project="${project.slug}">
+    <span><strong class="d-block">${escapeHTML(project.name)}</strong><small>${escapeHTML(project.id)} · ${escapeHTML(project.wilayas.join(', '))} · ${escapeHTML(project.sector)}</small></span>${referenceStatusBadge(project)}
+  </button>`).join('');
+  const wilayaOptions = wilayas.map((item) => `<option value="${escapeHTML(item.name)}" ${filters.wilaya === item.name ? 'selected' : ''}>${item.code} · ${escapeHTML(state.lang === 'ar' ? item.nameAr : item.name)}</option>`).join('');
+  const sectorOptions = [...new Set(referenceProjects.map((item) => item.sector))].map((item) => `<option ${filters.sector === item ? 'selected' : ''}>${escapeHTML(item)}</option>`).join('');
+  const statusOptions = ['À l’arrêt', 'En retard', 'À surveiller'].map((item) => `<option ${filters.status === item ? 'selected' : ''}>${item}</option>`).join('');
+  const regions = [...new Set(wilayas.map((item) => item.region))];
+  const content = state.mapView === 'map'
+    ? `<div class="leaflet-map" id="national-leaflet-map" data-leaflet-map="national" data-map-mode="reference" data-project-list="${visibleProjects.map((project) => project.slug).join(',')}" data-wilaya-list="${selectedWilayas.map((item) => item.code).join(',')}" data-selected-project="${selected?.slug || ''}"></div>`
+    : `<div class="list-group reference-map-list">${projectList || '<div class="empty-state">Aucun projet de référence ne correspond aux filtres.</div>'}</div>`;
+  return `${pageHeading('Carte nationale des projets', 'Carte Leaflet · projets de référence CNED et couverture géographique des 69 wilayas', `<button class="btn btn-outline-secondary btn-sm" data-map-toggle><i class="bx bx-list-ul me-1"></i>${state.mapView === 'map' ? 'Vue liste' : 'Vue carte'}</button><button class="btn btn-outline-primary btn-sm" data-map-fit><i class="bx bx-fullscreen me-1"></i>Voir tout</button>`)}
+    ${referenceSourceNote()}
+    <div class="card"><div class="card-header"><strong>Filtres géographiques et de portefeuille</strong></div><div class="card-body">
+      <form class="reference-map-filters" data-form="map-filters">
+        <label>Rechercher<input class="form-control form-control-sm" name="query" value="${escapeHTML(filters.query || '')}" placeholder="Projet, référence, secteur"></label>
+        <label>Wilaya<select class="form-select form-select-sm" name="wilaya"><option value="">Toutes les wilayas</option>${wilayaOptions}</select></label>
+        <label>Région<select class="form-select form-select-sm" name="region"><option value="">Toutes les régions</option>${regions.map((item) => `<option ${filters.region === item ? 'selected' : ''}>${escapeHTML(item)}</option>`).join('')}</select></label>
+        <label>Secteur<select class="form-select form-select-sm" name="sector"><option value="">Tous les secteurs</option>${sectorOptions}</select></label>
+        <label>État<select class="form-select form-select-sm" name="status"><option value="">Tous les états</option>${statusOptions}</select></label>
+        <label>AE actuelle<select class="form-select form-select-sm" name="budget"><option value="">Tous montants</option><option value="under-25" ${filters.budget === 'under-25' ? 'selected' : ''}>Moins de 25 Md DA</option><option value="25-100" ${filters.budget === '25-100' ? 'selected' : ''}>25 à 100 Md DA</option><option value="over-100" ${filters.budget === 'over-100' ? 'selected' : ''}>100 Md DA et plus</option></select></label>
+        <label>Alerte critique<select class="form-select form-select-sm" name="alertSeverity"><option value="">Toutes</option><option value="critical" ${filters.alertSeverity === 'critical' ? 'selected' : ''}>Avec alerte critique</option><option value="none" ${filters.alertSeverity === 'none' ? 'selected' : ''}>Sans alerte critique</option></select></label>
+        <div class="d-flex gap-2 align-items-end"><button class="btn btn-primary btn-sm">Appliquer</button><button type="button" class="btn btn-outline-secondary btn-sm" data-map-reset>Réinitialiser</button></div>
+      </form>
+      <div class="map-layout reference-map-layout mt-4"><div>${content}<p class="small text-muted mt-2 mb-0" data-map-message>Les points de wilaya sont des repères indicatifs dérivés des coordonnées des communes source, pas des limites administratives. Les tracés des infrastructures ne sont pas fournis.</p></div>
+        <aside class="reference-map-aside"><div class="map-legend mb-3"><span><i class="legend-dot" style="background:#bf5550"></i>À l’arrêt</span><span><i class="legend-dot" style="background:#c97b21"></i>En retard / surveillance</span><span><i class="legend-dot" style="background:#428b6e"></i>Suivi normal</span></div>
+          <strong>${visibleProjects.length} projet(s) de référence · ${selectedWilayas.length} wilaya(s) affichée(s)</strong>
+          <div class="list-group reference-map-project-list mt-2">${projectList || '<div class="empty-state py-3">Aucun projet ne correspond aux filtres.</div>'}</div>
+          ${selected ? `<div class="map-selection mt-3"><span class="eyebrow">Projet sélectionné</span><h6 class="mt-2 mb-1">${escapeHTML(selected.name)}</h6><p class="small text-muted">${escapeHTML(selected.id)} · ${escapeHTML(selected.wilayas.join(', '))} · ${escapeHTML(selected.sector)}</p>${referenceStatusBadge(selected)}
+            <div class="project-fact mt-3"><span>AE actuelle</span><strong>${referenceNumber(selected.aeCurrent)} Md DA</strong></div>
+            <div class="project-fact"><span>Avancement physique / financier</span><strong>${referenceNumber(selected.physical, 1)} % / ${referenceNumber(selected.financial, 1)} %</strong></div>
+            <div class="project-fact"><span>Fin contractuelle</span><strong>${escapeHTML(selected.contractualEnd)}</strong></div>
+            <div class="project-fact"><span>Alertes actives</span><strong>${referenceAlerts(selected).length}</strong></div>
+            <div class="project-fact"><span>Dernière situation</span><strong>${referenceSource.situationDate}</strong></div>
+            <button class="btn btn-primary w-100 mt-3" data-reference-project="${selected.slug}">Ouvrir la fiche projet</button>
+          </div>` : '<div class="empty-state py-3">Les projets démonstratifs des rôles non nationaux ne disposent pas de coordonnées fiables. Les wilayas restent consultables.</div>'}
+          <div class="small text-muted mt-3">Référentiel géographique : <a href="${wilayaSource.url}" target="_blank" rel="noopener noreferrer">Algeria-Cities</a> · licence ${wilayaSource.license}.</div>
+        </aside>
+      </div>
+    </div></div>`;
 }
 
 function documentCard(document) {
@@ -735,6 +1065,7 @@ function alertRow(instance) {
 }
 
 function render() {
+  disposeLeafletMaps();
   if (!state.user) {
     renderLogin();
     return;
@@ -767,14 +1098,26 @@ function shell() {
 function renderCurrentPage() {
   const host = document.querySelector('.app-content-area');
   if (!host) return;
+  disposeLeafletMaps();
   const selectedProject = projectById(state.projectId);
   const page = state.page === 'project' && selectedProject ? projectPage(selectedProject) : renderPageByKey(state.page);
   host.innerHTML = page;
+  if (state.page === 'alerts' && ['direction', 'pmo'].includes(roleKeyFor(state.user))) {
+    host.insertAdjacentHTML('beforeend', referenceAlertRegister());
+  }
   bindMenuPlugin();
+  initializeLeafletMaps(host);
+}
+
+function disposeLeafletMaps() {
+  leafMaps.forEach((map) => map.remove());
+  leafMaps = [];
 }
 
 function renderPageByKey(page) {
   if (page === 'dashboard') return roleDashboard();
+  if (page === 'reference-project') return referencePmoPage();
+  if (page === 'reference-details') return referenceProjectDetailPage();
   if (page === 'portfolio') return portfolioPage();
   if (page === 'project') return portfolioPage();
   if (page === 'kpis') return kpiCatalogPage();
@@ -791,7 +1134,148 @@ function renderPageByKey(page) {
   return `<div class="empty-state"><i class="bx bx-error-circle"></i>Cette section n’est pas disponible pour ce rôle.</div>`;
 }
 
+function initializeLeafletMaps(root) {
+  const leaflet = window.L;
+  root.querySelectorAll('[data-leaflet-map]').forEach((element) => {
+    if (!leaflet) {
+      element.innerHTML = '<div class="empty-state py-4">La bibliothèque cartographique n’a pas pu être chargée.</div>';
+      return;
+    }
+    const requestedProject = element.dataset.projectSlug ? referenceProjectBySlug(element.dataset.projectSlug) : null;
+    const projectSlugs = element.dataset.projectList?.split(',').filter(Boolean);
+    const visibleProjects = requestedProject
+      ? [requestedProject]
+      : projectSlugs
+        ? referenceProjects.filter((project) => projectSlugs.includes(project.slug))
+        : referenceProjects;
+    const wilayaCodes = element.dataset.wilayaList?.split(',').filter(Boolean);
+    const visibleWilayas = wilayaCodes
+      ? wilayas.filter((item) => wilayaCodes.includes(item.code))
+      : wilayas;
+    const map = leaflet.map(element, { scrollWheelZoom: false, zoomControl: !element.classList.contains('leaflet-mini-map') });
+    const base = leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
+    });
+    base.on('tileerror', () => {
+      const message = element.closest('.card-body')?.querySelector('[data-map-message]');
+      if (message) message.textContent = 'Le fond de carte est indisponible (connexion externe). Les points de wilaya et les données de projet restent disponibles.';
+    });
+    base.addTo(map);
+    const wilayaLayer = leaflet.layerGroup();
+    const statusLayers = {
+      'Projets · En cours': leaflet.layerGroup(),
+      'Projets · En retard / surveillance': leaflet.layerGroup(),
+      'Projets · À l’arrêt': leaflet.layerGroup()
+    };
+    const criticalLayer = leaflet.layerGroup();
+    const markerBySlug = new Map();
+    visibleWilayas.forEach((wilaya) => {
+      const projectRefs = visibleProjects.filter((project) => project.wilayas.includes(wilaya.name)).map((project) => project.id);
+      const marker = leaflet.circleMarker([wilaya.lat, wilaya.lon], {
+        radius: 3,
+        color: '#315b76',
+        weight: 1,
+        fillColor: '#dce8ee',
+        fillOpacity: 0.9
+      });
+      marker.bindPopup(`<strong>${escapeHTML(wilaya.code)} · ${escapeHTML(state.lang === 'ar' ? wilaya.nameAr : wilaya.name)}</strong><br><span>${escapeHTML(wilaya.region)} · repère indicatif</span><br><small>${projectRefs.length ? `${projectRefs.length} projet(s) de référence : ${escapeHTML(projectRefs.join(', '))}` : 'Aucun projet de référence dans cette wilaya.'}</small>`);
+      wilayaLayer.addLayer(marker);
+    });
+    visibleProjects.forEach((project) => {
+      const status = referenceStatus(project);
+      const color = status === 'À l’arrêt' ? '#bf5550' : status === 'En retard' || status === 'À surveiller' ? '#c97b21' : '#428b6e';
+      const marker = leaflet.circleMarker(project.coordinates, {
+        radius: element.classList.contains('leaflet-mini-map') ? 6 : 8,
+        color: '#fff',
+        weight: 2,
+        fillColor: color,
+        fillOpacity: 1
+      });
+      marker.bindPopup(`<div class="leaflet-project-popup"><strong>${escapeHTML(project.name)}</strong><span>${escapeHTML(project.id)} · ${escapeHTML(project.sector)}</span><span>${escapeHTML(project.wilayas.join(', '))} · ${escapeHTML(status)}</span><span>Physique ${referenceNumber(project.physical, 1)} % · financier ${referenceNumber(project.financial, 1)} %</span><span>AE ${referenceNumber(project.aeCurrent)} Md DA · échéance ${escapeHTML(project.contractualEnd)}</span><span>${referenceAlerts(project).length} alerte(s) · situation au ${referenceSource.situationDate}</span><button type="button" class="btn btn-sm btn-primary mt-2" data-reference-project="${project.slug}">Ouvrir la fiche projet</button></div>`);
+      marker.on('click', () => {
+        state.selectedMapProject = project.slug;
+        if (state.page === 'map') renderCurrentPage();
+      });
+      const layerKey = status === 'À l’arrêt'
+        ? 'Projets · À l’arrêt'
+        : status === 'En retard' || status === 'À surveiller'
+          ? 'Projets · En retard / surveillance'
+          : 'Projets · En cours';
+      statusLayers[layerKey].addLayer(marker);
+      markerBySlug.set(project.slug, marker);
+      if (referenceAlerts(project).some((alert) => alert.severity === 'Critique')) {
+        const critical = leaflet.circleMarker(project.coordinates, {
+          radius: element.classList.contains('leaflet-mini-map') ? 8 : 11,
+          color: '#bf5550',
+          weight: 2,
+          fillColor: '#bf5550',
+          fillOpacity: 0.25
+        });
+        critical.bindTooltip(`Alerte critique · ${escapeHTML(project.id)}`);
+        criticalLayer.addLayer(critical);
+      }
+    });
+    const isMini = element.classList.contains('leaflet-mini-map');
+    if (!isMini) {
+      wilayaLayer.addTo(map);
+      leaflet.control.layers(
+        { 'OpenStreetMap': base },
+        {
+          'Wilayas · repères indicatifs': wilayaLayer,
+          ...statusLayers,
+          'Alertes critiques': criticalLayer
+        },
+        { collapsed: window.innerWidth < 768 }
+      ).addTo(map);
+      leaflet.control.scale({ imperial: false }).addTo(map);
+    } else {
+      wilayaLayer.addTo(map);
+    }
+    Object.values(statusLayers).forEach((layer) => layer.addTo(map));
+    if (visibleProjects.length) {
+      const selectedSlug = element.dataset.selectedProject || state.selectedMapProject;
+      const selected = visibleProjects.find((project) => project.slug === selectedSlug);
+      if (selected) {
+        map.setView(selected.coordinates, isMini ? 5 : 7);
+        markerBySlug.get(selected.slug)?.openPopup();
+      } else {
+        const allPoints = visibleProjects.map((project) => project.coordinates);
+        map.fitBounds(leaflet.latLngBounds(allPoints), { padding: [24, 24], maxZoom: isMini ? 5 : 7 });
+      }
+    } else if (visibleWilayas.length) {
+      map.fitBounds(leaflet.latLngBounds(visibleWilayas.map((item) => [item.lat, item.lon])), { padding: [18, 18], maxZoom: 5 });
+    } else {
+      map.setView([28, 2.5], 4);
+    }
+    if (state.mapFitRequested && element.id === 'national-leaflet-map') {
+      map.fitBounds(leaflet.latLngBounds(visibleWilayas.map((item) => [item.lat, item.lon])), { padding: [24, 24] });
+    }
+    leafMaps.push(map);
+  });
+  state.mapFitRequested = false;
+}
+
+function updateMenuToggleState() {
+  const expanded = String(document.documentElement.classList.contains('layout-menu-expanded'));
+  document.querySelectorAll('[aria-controls="layout-menu"]').forEach((toggle) => {
+    toggle.setAttribute('aria-expanded', expanded);
+  });
+}
+
 function bindMenuPlugin() {
+  const menu = document.querySelector('#layout-menu');
+  document.querySelectorAll('.layout-menu-toggle').forEach((toggle) => {
+    const control = toggle.matches('a') ? toggle : toggle.querySelector('a');
+    control?.setAttribute('aria-controls', 'layout-menu');
+  });
+  updateMenuToggleState();
+  if (menu && !menu.menuInstance && typeof window.Menu === 'function') {
+    const menuInstance = new window.Menu(menu, { orientation: 'vertical', closeChildren: false });
+    if (window.Helpers) window.Helpers.mainMenu = menuInstance;
+  } else if (menu && !menu.menuInstance) {
+    menu.querySelector('.menu-inner')?.classList.add('overflow-auto');
+  }
   if (window.Helpers?.initAccordions) window.Helpers.initAccordions();
 }
 
@@ -801,7 +1285,7 @@ function renderLogin(error = '') {
   document.body.classList.remove('layout-menu-fixed');
   const authHeading = state.lang === 'ar' ? 'دخول مؤسسي آمن' : 'Accès à votre espace';
   const authCopy = state.lang === 'ar' ? 'استخدم حساب العرض التجريبي المخصص لدورك.' : 'Connectez-vous à votre espace institutionnel pour accéder aux projets et indicateurs autorisés.';
-  app.innerHTML = `<main class="login-page"><section class="login-identity"><div class="identity-top"><div class="cned-mark"><span class="cned-mark-icon"><i class="bx bx-building-house"></i></span><span class="cned-mark-name"><strong>CNED DIGITAL</strong><span>GOUVERNANCE · PERFORMANCE · TERRITOIRES</span></span></div></div><div class="identity-copy"><span class="identity-kicker">Caisse Nationale d’Équipement pour le Développement</span><h1>Piloter les investissements publics.<br>Coordonner les acteurs.<br>Maîtriser la performance.</h1><p>Une plateforme de gouvernance et d’intelligence dédiée au suivi des projets d’infrastructure et des investissements publics.</p></div><div class="identity-footer"><span>République Algérienne Démocratique et Populaire</span><span class="arabic">الصندوق الوطني للتجهيز والتنمية</span></div></section><section class="login-panel"><button class="btn btn-sm btn-outline-secondary login-language" data-action="language">${state.lang === 'fr' ? 'العربية' : 'Français'}</button><div class="login-panel-inner"><span class="eyebrow">Portail institutionnel</span><h2>${escapeHTML(authHeading)}</h2><p class="login-intro">${escapeHTML(authCopy)}</p>${error ? `<div class="alert alert-danger py-2" role="alert">${escapeHTML(error)}</div>` : ''}<form data-form="login" novalidate><div class="mb-3"><label class="form-label" for="login-user">${state.lang === 'ar' ? 'اسم المستخدم أو البريد المؤسسي' : 'Identifiant ou courriel institutionnel'}</label><input class="form-control" id="login-user" name="username" autocomplete="username" required placeholder="ex. pmo" /></div><div class="mb-3"><label class="form-label" for="login-password">${state.lang === 'ar' ? 'كلمة المرور' : 'Mot de passe'}</label><div class="input-group input-group-merge"><input class="form-control" id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="••••••••"><button class="btn btn-outline-secondary" type="button" data-action="toggle-password" aria-label="Afficher le mot de passe"><i class="bx bx-hide"></i></button></div></div><div class="d-flex align-items-center justify-content-between mb-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="remember" name="remember"><label class="form-check-label small" for="remember">Se souvenir de moi</label></div><button class="btn btn-link p-0 small" type="button" data-action="forgot-password">Mot de passe oublié ?</button></div><button class="btn btn-primary w-100 py-2" type="submit"><span data-login-label>Se connecter</span><span class="spinner-border spinner-border-sm ms-2 d-none" data-login-spinner></span></button></form><details class="login-demo"><summary>Accès de démonstration — comptes locaux</summary><p class="small text-muted mt-2 mb-2">Prototype frontend uniquement. Ces identifiants fictifs ne constituent pas un mécanisme d’authentification sécurisé.</p><div class="demo-account-list">${demoAccounts.map((account) => `<button class="demo-account" type="button" data-demo-user="${escapeHTML(account.username)}"><strong>${escapeHTML(account.role)}</strong><span>${escapeHTML(account.username)} · ${escapeHTML(account.password)}</span></button>`).join('')}</div></details><div class="d-flex justify-content-between mt-4 small text-muted"><span>© CNED DIGITAL · Démonstrateur</span><span>FR / AR</span></div></div></section></main>`;
+  app.innerHTML = `<main class="login-page"><section class="login-identity"><div class="identity-top"><div class="cned-mark"><span class="cned-mark-icon"><i class="bx bx-building-house"></i></span><span class="cned-mark-name"><strong>CNED DIGITAL</strong><span>GOUVERNANCE · PERFORMANCE · TERRITOIRES</span></span></div></div><div class="identity-copy"><span class="identity-kicker">Caisse Nationale d’Équipement pour le Développement</span><h1>Piloter les investissements publics.<br>Coordonner les acteurs.<br>Maîtriser la performance.</h1><p>Une plateforme de gouvernance et d’intelligence dédiée au suivi des projets d’infrastructure et des investissements publics.</p></div><div class="identity-footer"><span>République Algérienne Démocratique et Populaire</span><span class="arabic">الصندوق الوطني للتجهيز والتنمية</span><span class="identity-image-credit">Photo : <a href="https://commons.wikimedia.org/wiki/File:Martyrs%27_Memorial_seen_from_Le_Jardin_d%27Essai_(34985839343).jpg" target="_blank" rel="noopener noreferrer">Chris Hunkeler · CC BY-SA 2.0</a></span></div></section><section class="login-panel"><button class="btn btn-sm btn-outline-secondary login-language" data-action="language">${state.lang === 'fr' ? 'العربية' : 'Français'}</button><div class="login-panel-inner"><span class="eyebrow">Portail institutionnel</span><h2>${escapeHTML(authHeading)}</h2><p class="login-intro">${escapeHTML(authCopy)}</p>${error ? `<div class="alert alert-danger py-2" role="alert">${escapeHTML(error)}</div>` : ''}<form data-form="login" novalidate><div class="mb-3"><label class="form-label" for="login-user">${state.lang === 'ar' ? 'اسم المستخدم أو البريد المؤسسي' : 'Identifiant ou courriel institutionnel'}</label><input class="form-control" id="login-user" name="username" autocomplete="username" required placeholder="ex. pmo" /></div><div class="mb-3"><label class="form-label" for="login-password">${state.lang === 'ar' ? 'كلمة المرور' : 'Mot de passe'}</label><div class="input-group input-group-merge"><input class="form-control" id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="••••••••"><button class="btn btn-outline-secondary" type="button" data-action="toggle-password" aria-label="Afficher le mot de passe"><i class="bx bx-hide"></i></button></div></div><div class="d-flex align-items-center justify-content-between mb-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="remember" name="remember"><label class="form-check-label small" for="remember">Se souvenir de moi</label></div><button class="btn btn-link p-0 small" type="button" data-action="forgot-password">Mot de passe oublié ?</button></div><button class="btn btn-primary w-100 py-2" type="submit"><span data-login-label>Se connecter</span><span class="spinner-border spinner-border-sm ms-2 d-none" data-login-spinner></span></button></form><details class="login-demo"><summary>Accès de démonstration — comptes locaux</summary><p class="small text-muted mt-2 mb-2">Prototype frontend uniquement. Ces identifiants fictifs ne constituent pas un mécanisme d’authentification sécurisé.</p><div class="demo-account-list">${demoAccounts.map((account) => `<button class="demo-account" type="button" data-demo-user="${escapeHTML(account.username)}"><strong>${escapeHTML(account.role)}</strong><span>${escapeHTML(account.username)} · ${escapeHTML(account.password)}</span></button>`).join('')}</div></details><div class="d-flex justify-content-between mt-4 small text-muted"><span>© CNED DIGITAL · Démonstrateur</span><span>FR / AR</span></div></div></section></main>`;
 }
 
 function appToast(message) {
@@ -922,8 +1406,21 @@ function openProject(id) {
   render();
 }
 
+function openReferenceProject(slug) {
+  const project = referenceProjectBySlug(slug);
+  if (!project || !['direction', 'pmo'].includes(roleKeyFor(state.user))) {
+    appToast('Cette fiche de référence n’est pas accessible dans votre périmètre.');
+    return;
+  }
+  state.referenceProjectId = project.slug;
+  state.referenceProjectTab = 'synthese';
+  state.page = project.slug === 'djendjen' ? 'reference-project' : 'reference-details';
+  state.projectId = null;
+  render();
+}
+
 app.addEventListener('click', (event) => {
-  const target = event.target.closest('[data-nav], [data-project-id], [data-kpi-id], [data-alert-id], [data-rule-id], [data-project-tab], [data-alert-tab], [data-action], [data-demo-user], [data-page], [data-export], [data-map-project], [data-map-toggle], [data-conversation-id], [data-doc-preview], [data-notification-id]');
+  const target = event.target.closest('[data-nav], [data-project-id], [data-reference-project], [data-reference-map-project], [data-reference-project-tab], [data-kpi-id], [data-alert-id], [data-rule-id], [data-project-tab], [data-alert-tab], [data-action], [data-demo-user], [data-page], [data-export], [data-map-project], [data-map-toggle], [data-map-fit], [data-map-reset], [data-conversation-id], [data-doc-preview], [data-notification-id]');
   if (!target) return;
   if (target.dataset.demoUser) {
     const account = demoAccounts.find((item) => item.username === target.dataset.demoUser);
@@ -982,9 +1479,22 @@ app.addEventListener('click', (event) => {
       return;
     }
     state.page = requested;
+    if (requested === 'reference-project') {
+      state.referenceProjectId = 'djendjen';
+      state.referenceProjectTab = 'synthese';
+    }
     state.projectId = null;
     state.globalSearch = '';
     render();
+    return;
+  }
+  if (target.dataset.referenceProject) {
+    openReferenceProject(target.dataset.referenceProject);
+    return;
+  }
+  if (target.dataset.referenceProjectTab) {
+    state.referenceProjectTab = target.dataset.referenceProjectTab;
+    renderCurrentPage();
     return;
   }
   if (target.dataset.projectId) {
@@ -1032,6 +1542,23 @@ app.addEventListener('click', (event) => {
     renderCurrentPage();
     return;
   }
+  if (target.dataset.referenceMapProject) {
+    state.selectedMapProject = target.dataset.referenceMapProject;
+    renderCurrentPage();
+    return;
+  }
+  if (target.hasAttribute('data-map-fit')) {
+    state.mapFitRequested = true;
+    renderCurrentPage();
+    return;
+  }
+  if (target.hasAttribute('data-map-reset')) {
+    state.mapFilters = {};
+    state.selectedMapProject = null;
+    localStorage.setItem('cned-map-filters', JSON.stringify(state.mapFilters));
+    renderCurrentPage();
+    return;
+  }
   if (target.hasAttribute('data-map-toggle')) {
     state.mapView = state.mapView === 'map' ? 'list' : 'map';
     renderCurrentPage();
@@ -1059,6 +1586,26 @@ app.addEventListener('click', (event) => {
       state.notificationsRead.push(target.dataset.notificationId);
       localStorage.setItem('cned-notifications-read', JSON.stringify(state.notificationsRead));
     }
+  }
+});
+
+app.addEventListener('click', (event) => {
+  const menuToggle = event.target.closest('.layout-menu-toggle');
+  if (menuToggle) {
+    event.preventDefault();
+    window.Helpers?.toggleCollapsed?.();
+    updateMenuToggleState();
+    window.setTimeout(updateMenuToggleState, 20);
+    return;
+  }
+  if (
+    event.target.closest('[data-nav], [data-action="logout"]') &&
+    window.Helpers?.isSmallScreen?.() &&
+    document.documentElement.classList.contains('layout-menu-expanded')
+  ) {
+    window.Helpers.toggleCollapsed();
+    updateMenuToggleState();
+    window.setTimeout(updateMenuToggleState, 20);
   }
 });
 
@@ -1112,10 +1659,41 @@ app.addEventListener('submit', async (event) => {
     return;
   }
   if (form.dataset.form === 'map-filters') {
-    state.mapFilters = { wilaya: String(data.get('wilaya') || ''), sector: String(data.get('sector') || '') };
+    state.mapFilters = {
+      wilaya: String(data.get('wilaya') || ''),
+      region: String(data.get('region') || ''),
+      sector: String(data.get('sector') || ''),
+      status: String(data.get('status') || ''),
+      budget: String(data.get('budget') || ''),
+      alertSeverity: String(data.get('alertSeverity') || ''),
+      query: String(data.get('query') || '').trim()
+    };
     localStorage.setItem('cned-map-filters', JSON.stringify(state.mapFilters));
     state.selectedMapProject = null;
     renderCurrentPage();
+    return;
+  }
+  if (form.dataset.form === 'reference-field-update') {
+    const project = referenceProjectBySlug(state.referenceProjectId);
+    const field = String(data.get('field') || '');
+    const value = String(data.get('value') || '').trim();
+    if (roleKeyFor(state.user) !== 'pmo' || project?.slug !== 'djendjen') {
+      appToast('La saisie de référence est réservée au PMO sur la fiche Djendjen.');
+      return;
+    }
+    if (!djendjenOperationalFields.some((item) => item.name === field) || !value) {
+      appToast('Sélectionnez un champ autorisé et renseignez une valeur.');
+      return;
+    }
+    state.referenceOperationalUpdates[`${project.slug}:${field}`] = {
+      value,
+      author: state.user.name,
+      date: new Date().toLocaleDateString('fr-FR'),
+      status: 'À valider'
+    };
+    localStorage.setItem('cned-reference-field-updates', JSON.stringify(state.referenceOperationalUpdates));
+    renderCurrentPage();
+    appToast('Saisie locale enregistrée · validation institutionnelle requise.');
     return;
   }
   if (form.dataset.form === 'document-filter') {
