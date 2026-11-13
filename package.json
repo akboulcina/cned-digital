@@ -1,6 +1,6 @@
 {
-  "name": "sneat-bootstrap-html-admin-template-free",
-  "description": "Most Powerful & Comprehensive Free Bootstrap 5 HTML Admin Dashboard Template built for developers! 🚀",
+  "name": "cned-digital",
+  "description": "CNED DIGITAL — frontend-only project governance and intelligence prototype on Sneat.",
   "license": "MIT",
   "version": "1.0.0",
   "author": {
@@ -28,6 +28,7 @@
     "freebies"
   ],
   "scripts": {
+    "start": "python3 -m http.server 8080",
     "build": "npx gulp build",
     "build:js": "npx gulp build:js",
     "build:css": "npx gulp build:css",
