@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TAQADDUM — Espace maître d’ouvrage</title>
+<style>
+:root{--bg:#f4f6f5;--card:#fff;--ink:#16221c;--mu:#5d6c63;--ln:#e0e8e3;--g:#0b5d3b;--gt:#e5f3ec;--r:#c8102e;--rt:#fde7eb;--a:#9a5a00;--at:#fff1d6;--bl:#2f6f9a;--bt:#e3eef6;--sb:#12304a;--sbt:#c9dbea;--on:#fff;--sh:0 1px 2px rgba(10,40,25,.06),0 4px 14px rgba(10,40,25,.05);
+color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1511;--card:#16201b;--ink:#e6efe9;--mu:#9bada2;--ln:#273730;--g:#4cc38a;--gt:#183a2b;--r:#ff7089;--rt:#40202a;--a:#f2b24a;--at:#3b2d12;--bl:#6fb0dd;--bt:#14283a;--sb:#0a1824;--sbt:#a9bfd0;--on:#06150e;--sh:none;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d1511;--card:#16201b;--ink:#e6efe9;--mu:#9bada2;--ln:#273730;--g:#4cc38a;--gt:#183a2b;--r:#ff7089;--rt:#40202a;--a:#f2b24a;--at:#3b2d12;--bl:#6fb0dd;--bt:#14283a;--sb:#0a1824;--sbt:#a9bfd0;--on:#06150e;--sh:none;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13.5px/1.5 -apple-system,"Segoe UI",Inter,Roboto,sans-serif;display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+aside{background:var(--sb);color:var(--sbt);padding:22px 14px;position:sticky;top:env(safe-area-inset-top,0px);height:100vh;align-self:start;display:flex;flex-direction:column}
+.br{padding:0 8px 16px;border-bottom:1px solid rgba(255,255,255,.14);margin-bottom:14px}.br b{display:block;color:#fff;font-size:17px}.br span{font-size:11px;opacity:.75}
+aside button{display:flex;justify-content:space-between;align-items:center;gap:6px;width:100%;text-align:left;border:0;background:transparent;color:var(--sbt);font:inherit;font-weight:600;padding:11px 12px;border-radius:9px;cursor:pointer;margin-bottom:3px}
+aside button.on{background:rgba(255,255,255,.15);color:#fff}aside button:hover{background:rgba(255,255,255,.08)}aside em{font-style:normal;font-size:10px;background:#e8a317;color:#1b1200;border-radius:999px;padding:1px 7px;font-weight:800}
+.ft{margin-top:auto;font-size:10.5px;opacity:.7;padding:0 8px}.wrap{min-width:0}
+.top{background:var(--card);border-bottom:1px solid var(--ln);padding:14px 28px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+.top h1{font-size:18px;margin:0}.top small{color:var(--mu);display:block;font-size:11.5px}.pill{background:var(--at);color:var(--a);font-size:11px;font-weight:700;padding:6px 11px;border-radius:999px}
+main{padding:20px 28px 44px;max-width:1260px}h2{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--g);margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:var(--sh)}
+.gk{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin-bottom:14px}
+.k{background:var(--card);border:1px solid var(--ln);border-left:4px solid var(--g);border-radius:12px;padding:12px 14px;box-shadow:var(--sh)}.k.r{border-left-color:var(--r)}.k.a{border-left-color:#e8a317}.k.n{border-left-color:var(--ln)}
+.k .l{font-size:10.5px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.k .v{font-size:23px;font-weight:800;margin:3px 0}.k .v span{font-size:12px;color:var(--mu);font-weight:600;margin-left:4px}.k .s{font-size:11px;color:var(--mu)}
+.g2{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}.g2e{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mu{color:var(--mu);font-size:11.5px}.ht{font-size:11px;color:var(--mu);margin:10px 0 0}
+.bar{margin:9px 0}.bl{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:4px}.tr{height:9px;background:var(--ln);border-radius:9px;overflow:hidden}.tr i{display:block;height:100%;background:var(--g);border-radius:9px}.tr i.r{background:var(--r)}.tr i.a{background:#e8a317}.tr i.b{background:var(--bl)}
+.tg{font-style:normal;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--gt);color:var(--g);white-space:nowrap}.tg.r{background:var(--rt);color:var(--r)}.tg.a{background:var(--at);color:var(--a)}.tg.b{background:var(--bt);color:var(--bl)}.tg.n{background:var(--ln);color:var(--mu)}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:12.5px}th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);padding:8px;border-bottom:2px solid var(--ln);white-space:nowrap}td{padding:8px;border-bottom:1px solid var(--ln);vertical-align:middle}
+.it{padding:9px 0;border-bottom:1px solid var(--ln);display:flex;justify-content:space-between;gap:10px}.it:last-child{border:0}.it b{display:block}
+.btn{border:1px solid var(--g);background:var(--g);color:var(--on);padding:6px 12px;border-radius:9px;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}.btn.o{background:transparent;color:var(--g)}
+.ban{background:var(--sb);color:#fff;border-radius:16px;padding:18px 22px;margin-bottom:14px}.ban h3{margin:4px 0 6px;font-size:18px}.ban p{margin:0;opacity:.9;max-width:900px}.ban small{font-size:10px;letter-spacing:1px;text-transform:uppercase;opacity:.7;font-weight:700}
+label{display:block;font-size:11px;font-weight:700;color:var(--mu);margin:9px 0 4px}select,input,textarea{width:100%;padding:7px 10px;border:1px solid var(--ln);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit}input:disabled{opacity:.7}td input{min-width:150px}
+@media (max-width:900px){body{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;overflow-x:auto;padding:10px;gap:4px}.br,.ft{display:none}aside button{width:auto;white-space:nowrap;margin:0}.g2,.g2e{grid-template-columns:1fr}.top,main{padding-left:16px;padding-right:16px}}
+@media print{aside,.btn{display:none}body{display:block;background:#fff}}
+</style>
+</head>
+<body>
+<aside id="nav"><div class="br"><b>تقدّم · TAQADDUM</b><span>Espace maître d’ouvrage</span></div></aside>
+<div class="wrap"><div class="top"><div><h1>Pénétrante Djendjen – Autoroute Est-Ouest</h1><small>CNED-TP-001 · Travaux publics · Jijel, Mila, Sétif</small></div><span class="pill">Situation au 30/06/2025 · Source : synthèse CNED, septembre 2025</span></div><main id="app"></main></div>
+<script>
+const f=(n,d=1)=>n==null?'—':Number(n).toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const K=(l,v,u,s,c='')=>`<div class="k ${c}"><div class="l">${l}</div><div class="v">${v}<span>${u}</span></div><div class="s">${s}</div></div>`;
+const B=(l,p,c='',t='')=>`<div class="bar"><div class="bl"><span>${l}</span><b>${t||f(p)+' %'}</b></div><div class="tr"><i class="${c}" style="width:${Math.max(0,Math.min(100,p))}%"></i></div></div>`;
+const C=(t,b,h='')=>`<section class="card"><h2>${t}</h2>${b}${h?`<p class="ht">${h}</p>`:''}</section>`;
+const T=(h,r)=>`<div class="tw"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r.join('')}</tbody></table></div>`;
+const G=(l,v)=>`<div class="it"><span class="mu">${l}</span><b style="text-align:right">${v}</b></div>`;
+
+/* Données du projet (rapport CNED, situation au 30/06/2025) */
+const tap=62,taf=61.32,dc=91,ini=36,vig=138,ae0=90,ae=214.375,eng=210.824,pay=136.73,mt=183.586;
+const rest=vig*(1-dc/100),obs=tap/(vig*dc/100),req=(100-tap)/rest,eac=mt*taf/tap;
+const AL=[['Dérive de l’AE : × '+f(ae/ae0)+' depuis l’inscription ('+f(ae0,0)+' → '+f(ae,1)+' Md DA)','Documenter la consistance et les réévaluations successives'],['Délai en vigueur : × '+f(vig/ini)+' le délai initial (36 → 138 mois)','Distinguer prolongations légitimes et retard imputable'],['Délai consommé à '+dc+' % pour '+tap+' % de travaux','Établir un plan de rattrapage avec le contractant'],['Cadence requise : × '+f(req/obs)+' la cadence observée','Mesure corrective ou révision du calendrier'],['Réévaluation de 9,071 Md DA en attente d’approbation','Relancer l’instruction (avenants n°14 et n°08)']];
+const SUJ=[['Libération des emprises','Expropriation et déplacement des réseaux non achevés','Autorités locales'],['Section PK 34–38 (4 km)','Consistance et coût à arrêter avant lancement des travaux','Maître d’ouvrage et BET'],['Défaillance d’un membre du groupement','ETRHB à l’arrêt de 2019 à 2023, puis remplacé par MAPA','Résolu partiellement'],['Réévaluation de l’AE','9,071 Md DA retenus en loi de finances 2025, notification non intervenue','Gouvernement']];
+
+/* Champs : [module, groupe, libellé, valeur, unité, source] — valeur vide = à renseigner par le MO ; sinon à valider */
+const F=[];const add=(m,g,rows)=>rows.forEach(r=>F.push({m,g,l:r[0],v:r[1],u:r[2]||'',src:r[3]||'À renseigner par le MO',s:r[1]===''?'vide':'decl'}));
+add('s','Avancement constaté (déclaré par le bureau de contrôle)',[['Études d’exécution','95','%','BCS · rapport CNED'],['Lot route','58','%','BCS · rapport CNED'],['Lot ouvrages d’art','62','%','BCS · rapport CNED'],['Lot tunnel','74','%','BCS · rapport CNED']]);
+add('s','Données de chantier',[['Linéaire mis en circulation','30','km','Rapport CNED : 13 km Jijel + 17 km Sétif, janvier 2025'],['Emprise libérée','','%'],['Déplacements de réseaux traités sur identifiés','',''],['Effectif et engins mobilisés par le contractant','',''],['Date de la dernière visite de chantier','',''],['Photos géolocalisées déposées ce mois','','nombre']]);
+add('s','Engagements hebdomadaires',[['Engagements pris cette semaine','','nombre'],['Engagements tenus','','nombre'],['Cause principale des manques','','']]);
+add('s','Blocages et décisions',[['Parcelles non libérées','','nombre'],['Plan de déblocage validé (date)','',''],['Section PK 34–38 : consistance arrêtée','','oui / non']]);
+add('j','Marché de travaux',[['Mode de passation','Gré à gré après accord du Gouvernement du 17/07/2013','','Rapport CNED'],['Numéro du marché','',''],['Ordre de service de démarrage','10/03/2014','','Rapport CNED'],['Délai initial / en vigueur','36 mois / 138 mois','','Rapport CNED'],['Fin contractuelle','06/09/2026','','Rapport CNED']]);
+add('j','Avenants et ordres de service',[['Avenants signés au marché de travaux','','nombre'],['Avenant n°14 (travaux) : objet et montant','Projet d’avenant, réévaluation de 9,071 Md DA','','Rapport CNED'],['Avenant n°08 (contrôle et suivi)','Projet d’avenant','','Rapport CNED'],['Ordres de service d’arrêt et de reprise (2019–2023)','',''],['Substitution d’ETRHB par MAPA : acte et date','','']]);
+add('j','Garanties et risques contractuels',[['Caution de bonne exécution : montant et validité','',''],['Assurances en cours de validité','','oui / non'],['Prolongations légitimes accordées','','jours'],['Retard imputable à l’entreprise','','jours'],['Mises en demeure émises : nombre et dates','',''],['Réclamations ou litiges en cours','','']]);
+add('j','Réception',[['PV de réception partielle (sections livrées en janvier 2025)','','date']]);
+add('f','Autorisation d’engagement',[['AE initiale (2007)','90,000','Md DA','Rapport CNED'],['AE actuelle (2024)','214,375','Md DA','Rapport CNED'],['Engagements cumulés','210,824','Md DA','Rapport CNED'],['Paiements cumulés','136,730','Md DA','Rapport CNED'],['Réévaluation en attente (loi de finances 2025)','9,071','Md DA','Rapport CNED']]);
+add('f','Marchés',[['Marché de travaux après avenants','183,586','Md DA','Rapport CNED'],['Paiements travaux, avances comprises','115,347','Md DA','Rapport CNED'],['Marché de contrôle et suivi après avenants','7,033','Md DA','Rapport CNED'],['Paiements contrôle et suivi','5,713','Md DA','Rapport CNED'],['Marché d’études (payé à 100 %)','0,317','Md DA','Rapport CNED']]);
+add('f','Situations et paiements (à renseigner par le MO)',[['Situations de travaux en instance de paiement','','nombre et montant'],['Délai moyen de paiement d’une situation','','jours'],['Révisions de prix en instance','','Md DA'],['Pertes de change à compenser','','Md DA'],['Crédits de paiement notifiés (exercice)','','Md DA'],['Crédits de paiement consommés (exercice)','','Md DA'],['Avances forfaitaires restant à récupérer','','Md DA']]);
+const ST={vide:['À renseigner','a'],decl:['À valider','b'],val:['Validé','']};
+const cnt=m=>{const x=F.filter(q=>!m||q.m==m);return[x.filter(q=>q.s=='val').length,x.length,x.filter(q=>q.s!='val').length]};
+
+function rows(m){const gs=[...new Set(F.filter(q=>q.m==m).map(q=>q.g))];
+return gs.map(g=>C(g,T(['Champ','Valeur','État','Action'],F.map((q,i)=>[q,i]).filter(x=>x[0].m==m&&x[0].g==g).map(([q,i])=>`<tr><td><b>${q.l}</b><div class="mu">${q.src}</div></td><td><input id="x${i}" value="${q.v}" ${q.s=='val'?'disabled':''}>${q.u?`<div class="mu">${q.u}</div>`:''}</td><td><em class="tg ${ST[q.s][1]}">${ST[q.s][0]}</em></td><td><button class="btn ${q.s=='val'?'o':''}" onclick="act(${i})">${q.s=='val'?'Rouvrir':q.s=='vide'?'Enregistrer':'Valider'}</button></td></tr>`)))).join('')}
+function act(i){const q=F[i];if(q.s=='val'){q.s='decl'}else{const v=document.getElementById('x'+i).value.trim();if(!v)return;q.v=v;q.s='val'}show(true)}
+const bar=m=>{const c=cnt(m);return `<div class="gk" style="grid-template-columns:repeat(3,1fr)">${K('Champs validés',c[0],'/ '+c[1],'')}${K('À renseigner ou valider',c[2],'','Action du maître d’ouvrage',c[2]?'a':'')}${K('Complétude',f(c[0]/c[1]*100,0),'%','',c[0]==c[1]?'':'n')}</div>`};
+
+function projet(){const c=cnt();return `<div class="ban"><small>Synthèse du maître d’ouvrage</small><h3>Délai consommé à ${dc} % pour ${tap} % de travaux : ${AL.length} alertes à traiter</h3><p>L’avancement physique (${tap} %) et les paiements (${f(taf)} %) sont alignés, mais le délai est presque épuisé. La cadence requise est ${f(req/obs)} fois la cadence observée. ${c[2]} champs sur ${c[1]} restent à renseigner ou à valider.</p></div>
+<div class="gk">${K('Avancement physique',tap,'%','Travaux réalisés','a')}${K('Avancement financier',f(taf),'%','Paiements sur le marché travaux')}${K('Écart','−'+f(tap-taf),'pts','Paiements légèrement en retard')}${K('Délai consommé',dc,'%','Contrat de 138 mois','r')}${K('Alertes',AL.length,'','Voir la liste ci-dessous','r')}${K('Complétude des champs',f(c[0]/c[1]*100,0),'%',c[2]+' à traiter','n')}</div>
+<div class="g2">${C('Présentation',G('Référence','CNED-TP-001 (proposée)')+G('Consistance','110 km, 2×3 voies')+G('Ouvrages','56 viaducs, 41 ouvrages d’art, 10 échangeurs')+G('Tunnel','1 tunnel bitube de 1 800 ml')+G('Aires annexes','3 couples')+G('Objectif','Absorber le trafic du port de Djendjen et favoriser les échanges avec le Sahel'))}
+${C('Acteurs du projet',T(['Rôle','Organisme','Responsable'],[['Maître d’ouvrage','<span class="mu">À renseigner</span>','<span class="mu">À renseigner</span>'],['Bureau d’études (BET)','SNC Lavalin – CTTP','<span class="mu">À renseigner</span>'],['Organisme de contrôle (OC)','<span class="mu">À renseigner</span>','<span class="mu">À renseigner</span>'],['Bureau de contrôle et suivi (BCS)','EGIS – SAETI – LTPE','<span class="mu">À renseigner</span>'],['Contractant','Rizzani de Decher – MAPA – SAPTA','<span class="mu">À renseigner</span>']].map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`)),'Les noms de responsables ne figurent pas dans le rapport CNED.')}</div>
+<div class="g2e">${C('Avancement par lot',B('Études d’exécution',95)+B('Lot route',58,'a')+B('Lot ouvrages d’art',62,'a')+B('Lot tunnel',74)+B('Global',62,'a'))}
+${C('Alertes du projet',AL.map(a=>`<div class="it"><div><b>${a[0]}</b><span class="mu">${a[1]}</span></div><em class="tg a">Important</em></div>`).join(''))}</div>
+<div class="g2e">${C('Indicateurs de délai',G('Durée initiale / en vigueur','36 / 138 mois (× '+f(vig/ini)+')')+G('Fin contractuelle','06/09/2026')+G('Délai consommé',dc+' %')+G('Décalage planning',(dc-tap)+' pts (délai moins physique)')+G('Cadence observée',f(obs)+' pt d’avancement par mois')+G('Cadence requise',f(req)+' points par mois'))}
+${C('Indicateurs financiers',G('AE actuelle / initiale',f(ae,1)+' / '+f(ae0,0)+' Md DA (× '+f(ae/ae0)+')')+G('Engagé',f(eng,1)+' Md DA ('+f(eng/ae*100)+' % de l’AE)')+G('Payé',f(pay,1)+' Md DA ('+f(pay/ae*100)+' % de l’AE)')+G('Reste à payer sur engagements',f(eng-pay,1)+' Md DA')+G('Coût final probable (travaux)',f(eac,1)+' Md DA contre '+f(mt,1)),'Coût final probable = marché × (paiements ÷ avancement). Il ne tient pas compte de l’avenant n°14 en attente.')}</div>
+${C('Sujétions et contraintes',T(['Sujétion','Constat','Qui peut lever'],SUJ.map(s=>`<tr><td><b>${s[0]}</b></td><td>${s[1]}</td><td>${s[2]}</td></tr>`)))}`}
+
+const J=[];
+const ACT=[['Libérer les emprises restantes (expropriation et réseaux)','Autorités locales',1],['Arrêter la consistance et le coût de la section PK 34–38','Bureau d’études',2],['Obtenir l’approbation de la réévaluation de 9,071 Md DA','Commission sectorielle des marchés',7],['Renforcer la mobilisation de l’entreprise','Contractant',4],['Déposer la fiche mensuelle de suivi','Bureau de contrôle et suivi',3]];
+const jr=()=>J.length?T(['Date','Destinataire','Type','Objet','État'],J.map(j=>`<tr><td>${j[0]}</td><td>${j[1]}</td><td>${j[2]}</td><td>${j[3]}</td><td><em class="tg b">Enregistré</em></td></tr>`)):'<p class="mu">Aucun échange enregistré pour le moment.</p>';
+function comm(){return `<div class="g2">${C('Actions à traiter avec les parties prenantes',T(['Action','Destinataire','Échéance','Suivi'],ACT.map((a,i)=>`<tr><td><b>${a[0]}</b></td><td>${a[1]}</td><td><em class="tg n">À fixer</em></td><td><button class="btn o" onclick="pre(${i})">Préparer</button></td></tr>`)),'Actions issues des recommandations de la CNED pour ce projet.')}
+${C('Nouveau message',`<label>Destinataire</label><select id="md">${['CNED','Bureau d’études','Organisme de contrôle','Bureau de contrôle et suivi','Contractant','Autorités locales','Concessionnaires de réseaux','Commission sectorielle des marchés'].map(x=>`<option>${x}</option>`).join('')}</select><label>Type</label><select id="mt"><option>Demande de situation</option><option>Relance</option><option>Notification de décision</option><option>Convocation de réunion</option><option>Réponse à la CNED</option></select><label>Objet</label><input id="mo"><label>Message</label><textarea id="mm" rows="3"></textarea><button class="btn" style="margin-top:10px" onclick="send()">Enregistrer et envoyer (démonstration)</button>`,'Aucun message n’est réellement envoyé dans ce prototype.')}</div>
+${C('Journal des échanges',`<div id="jr">${jr()}</div>`,'Chaque échange est conservé pour garder une trace opposable.')}`}
+function pre(i){const a=ACT[i];document.getElementById('mo').value=a[0];document.getElementById('mm').value='Pour mise en œuvre : '+a[0]+'. Merci de nous indiquer l’état d’avancement et la date prévue de levée.';document.getElementById('md').selectedIndex=a[2];document.getElementById('mo').scrollIntoView({block:'center'})}
+function send(){const o=document.getElementById('mo').value.trim();if(!o)return;J.unshift([new Date().toLocaleDateString('fr-FR'),document.getElementById('md').value,document.getElementById('mt').value,o]);document.getElementById('jr').innerHTML=jr();document.getElementById('mo').value='';document.getElementById('mm').value=''}
+
+const M={projet:['1 · Projet','m',projet],saisie:['2 · Suivi technique','s',()=>bar('s')+rows('s')],juridique:['3 · Juridique','j',()=>bar('j')+rows('j')],financier:['4 · Financier','f',()=>bar('f')+rows('f')],communication:['5 · Communication','',comm]};
+const nav=document.getElementById('nav'),app=document.getElementById('app');
+function show(keep){const k=M[location.hash.slice(1)]?location.hash.slice(1):'projet',y=window.scrollY;app.innerHTML=M[k][2]();
+nav.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',b.dataset.k===k);const m=M[b.dataset.k][1];const e=b.querySelector('em');if(e)e.textContent=m=='m'?cnt()[2]:cnt(m)[2]});window.scrollTo(0,keep?y:0)}
+nav.insertAdjacentHTML('beforeend',Object.keys(M).map(k=>`<button data-k="${k}">${M[k][0]}${M[k][1]?'<em></em>':''}</button>`).join('')+'<div class="ft">Prototype · projet réel du rapport CNED<br>Champs à renseigner : saisie fictive, non enregistrée</div>');
+nav.onclick=e=>{const b=e.target.closest('button');if(b)location.hash=b.dataset.k};
+window.addEventListener('hashchange',()=>show());show();
+</script>
+</body>
+</html>
