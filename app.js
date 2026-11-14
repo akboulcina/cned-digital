@@ -63,6 +63,7 @@ const state = {
   projectSort: saved('cned-project-sort', 'name'),
   reportPeriod: saved('cned-report-period', '12 derniers mois'),
   selectedMapProject: null,
+  mapFocusSlug: null,
   mapView: 'map',
   referenceProjectTab: 'synthese',
   referenceProjectId: 'djendjen',
@@ -1104,7 +1105,7 @@ function shell() {
     const active = page === state.page || (state.page === 'project' && page === 'portfolio');
     return `<li class="menu-item ${active ? 'active' : ''}"><a class="menu-link" data-nav="${page}"><i class="menu-icon tf-icons bx ${iconName}"></i><div>${escapeHTML(t(label))}</div>${page === 'alerts' && currentInstances().length ? `<span class="badge badge-center rounded-pill bg-danger ms-auto">${currentInstances().length}</span>` : ''}</a></li>`;
   }).join('');
-  return `<div class="layout-wrapper layout-content-navbar"><div class="layout-container"><aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme"><div class="app-brand demo shell-brand"><a class="app-brand-link" data-nav="dashboard"><span class="shell-brand-icon"><i class="bx bx-building-house"></i></span><span class="app-brand-text demo menu-text fw-bolder ms-2">CNED DIGITAL</span></a><a href="javascript:void(0)" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none" aria-label="Fermer le menu"><i class="bx bx-chevron-left bx-sm align-middle"></i></a></div><div class="menu-inner-shadow"></div><div class="px-4 pb-2"><div class="role-chip w-100 justify-content-start"><i class="bx bx-shield-quarter"></i><span>${escapeHTML(config.name)}</span></div><small class="d-block text-muted mt-2 px-1">${escapeHTML(config.workspace)}</small></div><ul class="menu-inner py-1"><li class="menu-header small text-uppercase"><span class="menu-header-text">Espace de travail</span></li>${roleNav}<li class="menu-header small text-uppercase"><span class="menu-header-text">Session de démonstration</span></li><li class="menu-item"><a class="menu-link" data-action="logout"><i class="menu-icon tf-icons bx bx-log-out"></i><div>${escapeHTML(t('Déconnexion'))}</div></a></li></ul></aside><div class="layout-page"><nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar"><div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none"><a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)" aria-label="Ouvrir le menu"><i class="bx bx-menu bx-sm"></i></a></div><div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse"><form class="navbar-search d-flex align-items-center" data-form="global-search"><i class="bx bx-search fs-4 lh-0 text-muted"></i><input type="search" class="form-control border-0 shadow-none ms-2" name="query" placeholder="${escapeHTML(t('Rechercher un projet, KPI…'))}" aria-label="Rechercher" value="${escapeHTML(state.globalSearch)}"></form><ul class="navbar-nav flex-row align-items-center ms-auto"><li class="nav-item me-2"><span class="role-chip d-none d-lg-inline-flex">${escapeHTML(config.workspace)}</span></li><li class="nav-item me-2"><button class="btn btn-sm btn-text-secondary" data-action="language" aria-label="Changer de langue">${state.lang === 'fr' ? 'عربي' : 'FR'}</button></li><li class="nav-item me-2"><button class="btn btn-sm btn-icon btn-text-secondary position-relative" data-nav="notifications" aria-label="Notifications"><i class="bx bx-bell bx-sm"></i>${notificationCount ? `<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">${notificationCount}</span>` : ''}</button></li><li class="nav-item navbar-dropdown dropdown-user dropdown"><a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0)" data-bs-toggle="dropdown"><div class="avatar avatar-online"><span class="avatar-initials">${escapeHTML(state.user.initials)}</span></div></a><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="javascript:void(0)"><span class="d-flex align-items-center"><span class="avatar-initials me-3">${escapeHTML(state.user.initials)}</span><span><strong class="d-block">${escapeHTML(state.user.name)}</strong><small class="text-muted">${escapeHTML(state.user.title)}</small></span></span></a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="javascript:void(0)"><i class="bx bx-building me-2"></i>${escapeHTML(state.user.organization)}</a></li><li><a class="dropdown-item" data-action="logout"><i class="bx bx-log-out me-2"></i>${escapeHTML(t('Déconnexion'))}</a></li></ul></li></ul></div></nav><div class="content-wrapper"><div class="container-xxl flex-grow-1 container-p-y" id="page-content"><div class="app-content-area"></div></div><footer class="content-footer footer bg-footer-theme"><div class="container-xxl d-flex flex-wrap justify-content-between py-2 flex-md-row flex-column"><div class="mb-2 mb-md-0 text-muted small">CNED DIGITAL · Prototype de démonstration frontend · Référentiel TAQADDUM v1</div><div class="text-muted small">Données fictives · aucune connexion à un système institutionnel</div></div></footer><div class="content-backdrop fade"></div></div></div></div><div class="layout-overlay layout-menu-toggle"></div></div><div class="modal fade" id="detail-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content"></div></div></div>`;
+  return `<div class="layout-wrapper layout-content-navbar"><div class="layout-container"><aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme"><div class="app-brand demo shell-brand"><a class="app-brand-link" data-nav="dashboard"><img class="shell-brand-logo" src="assets/img/taqaddum/logo.svg" width="36" height="36" alt="" decoding="async"><span class="app-brand-text demo menu-text fw-bolder ms-2">TAQADDUM</span></a><a href="javascript:void(0)" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none" aria-label="Fermer le menu"><i class="bx bx-chevron-left bx-sm align-middle"></i></a></div><div class="menu-inner-shadow"></div><div class="px-4 pb-2"><div class="role-chip w-100 justify-content-start"><i class="bx bx-shield-quarter"></i><span>${escapeHTML(config.name)}</span></div><small class="d-block text-muted mt-2 px-1">${escapeHTML(config.workspace)}</small></div><ul class="menu-inner py-1"><li class="menu-header small text-uppercase"><span class="menu-header-text">Espace de travail</span></li>${roleNav}<li class="menu-header small text-uppercase"><span class="menu-header-text">Session de démonstration</span></li><li class="menu-item"><a class="menu-link" data-action="logout"><i class="menu-icon tf-icons bx bx-log-out"></i><div>${escapeHTML(t('Déconnexion'))}</div></a></li></ul></aside><div class="layout-page"><nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar"><div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none"><a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)" aria-label="Ouvrir le menu"><i class="bx bx-menu bx-sm"></i></a></div><div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse"><form class="navbar-search d-flex align-items-center" data-form="global-search"><i class="bx bx-search fs-4 lh-0 text-muted"></i><input type="search" class="form-control border-0 shadow-none ms-2" name="query" placeholder="${escapeHTML(t('Rechercher un projet, KPI…'))}" aria-label="Rechercher" value="${escapeHTML(state.globalSearch)}"></form><ul class="navbar-nav flex-row align-items-center ms-auto"><li class="nav-item me-2"><span class="role-chip d-none d-lg-inline-flex">${escapeHTML(config.workspace)}</span></li><li class="nav-item me-2"><button class="btn btn-sm btn-text-secondary" data-action="language" aria-label="Changer de langue">${state.lang === 'fr' ? 'عربي' : 'FR'}</button></li><li class="nav-item me-2"><button class="btn btn-sm btn-icon btn-text-secondary position-relative" data-nav="notifications" aria-label="Notifications"><i class="bx bx-bell bx-sm"></i>${notificationCount ? `<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">${notificationCount}</span>` : ''}</button></li><li class="nav-item navbar-dropdown dropdown-user dropdown"><a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0)" data-bs-toggle="dropdown"><div class="avatar avatar-online"><span class="avatar-initials">${escapeHTML(state.user.initials)}</span></div></a><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="javascript:void(0)"><span class="d-flex align-items-center"><span class="avatar-initials me-3">${escapeHTML(state.user.initials)}</span><span><strong class="d-block">${escapeHTML(state.user.name)}</strong><small class="text-muted">${escapeHTML(state.user.title)}</small></span></span></a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="javascript:void(0)"><i class="bx bx-building me-2"></i>${escapeHTML(state.user.organization)}</a></li><li><a class="dropdown-item" data-action="logout"><i class="bx bx-log-out me-2"></i>${escapeHTML(t('Déconnexion'))}</a></li></ul></li></ul></div></nav><div class="content-wrapper"><div class="container-xxl flex-grow-1 container-p-y" id="page-content"><div class="app-content-area"></div></div><footer class="content-footer footer bg-footer-theme"><div class="container-xxl d-flex flex-wrap justify-content-between py-2 flex-md-row flex-column"><div class="mb-2 mb-md-0 text-muted small">TAQADDUM · Prototype de démonstration frontend · Référentiel TAQADDUM v1</div><div class="text-muted small">Données fictives · aucune connexion à un système institutionnel</div></div></footer><div class="content-backdrop fade"></div></div></div></div><div class="layout-overlay layout-menu-toggle"></div></div><div class="modal fade" id="detail-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content"></div></div></div>`;
 }
 
 function renderCurrentPage() {
@@ -1152,6 +1153,9 @@ function renderPageByKey(page) {
 
 const BASEMAP_STORAGE_KEY = 'cned-basemap';
 
+// Emprise de l'Algérie entière (sud, ouest, nord, est) : vue initiale de la carte nationale.
+const ALGERIA_BOUNDS = [[18.9, -8.7], [37.2, 12.0]];
+
 // Fonds de carte gratuits, sans clé d'API. Les tuiles OSM publiques (tile.openstreetmap.org) et les fonds CARTO
 // sont volontairement exclus (« 403 Access blocked » / indisponibles depuis certains domaines de développement
 // comme Codespaces). Le premier de la liste (ou le dernier choisi par l'utilisateur) est affiché ; en cas
@@ -1159,7 +1163,7 @@ const BASEMAP_STORAGE_KEY = 'cned-basemap';
 const osmCredit = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
 const basemapCatalog = [
   { id: 'esri-streets', label: 'Plan', icon: 'bx-map-alt', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, and others' } },
-  { id: 'esri-imagery', label: 'Satellite', icon: 'bx-world', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' } },
+  { id: 'esri-imagery', label: 'Satellite', borders: false, icon: 'bx-world', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' } },
   { id: 'opentopomap', label: 'Relief', icon: 'bx-landscape', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', options: { subdomains: 'abc', maxZoom: 17, attribution: `${osmCredit}, SRTM &mdash; &copy; <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a> (CC-BY-SA)` } }
 ];
 
@@ -1170,7 +1174,7 @@ function availableBasemaps() {
     const attribution = mapConfig.attributionUrl
       ? `<a href="${escapeHTML(mapConfig.attributionUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(mapConfig.attribution || mapConfig.provider)}</a>`
       : escapeHTML(mapConfig.attribution || mapConfig.provider);
-    list.unshift({ id: 'custom', label: mapConfig.provider, url: mapConfig.url, options: { maxZoom: mapConfig.maxZoom || 19, attribution } });
+    list.unshift({ id: 'custom', label: mapConfig.provider, borders: mapConfig.borders !== false, url: mapConfig.url, options: { maxZoom: mapConfig.maxZoom || 19, attribution } });
   }
   return list;
 }
@@ -1204,12 +1208,19 @@ function setupBasemaps(leaflet, map, showStatus) {
   const savedId = readSavedBasemap();
   let activeId = layers.has(savedId) ? savedId : catalog[0].id;
 
-  const api = { catalog, onChange: null, getActive: () => activeId };
+  const listeners = [];
+  const api = {
+    catalog,
+    getActive: () => activeId,
+    // Fonds avec frontières (Plan, Relief) ou sans (Satellite) : sert à masquer le tracé du Sahara occidental.
+    hasBorders: (id = activeId) => catalog.find((definition) => definition.id === id)?.borders !== false,
+    subscribe: (listener) => { listeners.push(listener); }
+  };
   const activate = (id) => {
     if (activeId && layers.get(activeId) && map.hasLayer(layers.get(activeId))) map.removeLayer(layers.get(activeId));
     activeId = id;
     layers.get(id).addTo(map);
-    api.onChange?.(id);
+    listeners.forEach((listener) => listener(id));
   };
   api.select = (id) => {
     if (!layers.has(id) || id === activeId) return;
@@ -1280,7 +1291,7 @@ function buildMapToolbar(map, element, basemaps, overlays) {
       refreshOverlays();
     }
   });
-  basemaps.onChange = refreshBasemaps;
+  basemaps.subscribe(refreshBasemaps);
   refreshBasemaps(basemaps.getActive());
   refreshOverlays();
   element.insertAdjacentElement('beforebegin', toolbar);
@@ -1306,7 +1317,7 @@ function initializeLeafletMaps(root) {
       ? wilayas.filter((item) => wilayaCodes.includes(item.code))
       : wilayas;
     const isMini = element.classList.contains('leaflet-mini-map');
-    const map = leaflet.map(element, { scrollWheelZoom: false, zoomControl: !isMini });
+    const map = leaflet.map(element, { scrollWheelZoom: false, zoomControl: !isMini, zoomSnap: isMini ? 1 : 0.25 });
     const providerStatus = leaflet.control({ position: 'topright' });
     let statusElement;
     providerStatus.onAdd = () => {
@@ -1384,11 +1395,20 @@ function initializeLeafletMaps(root) {
       }
     });
     // Sahara occidental : limite nord en trait continu (liseré blanc dessous pour le contraste).
+    // Le trait n'est affiché que sur les fonds qui comportent déjà des frontières (Plan, Relief) ;
+    // il est retiré automatiquement sur le fond Satellite, qui n'en a pas.
     const saharaLayer = leaflet.layerGroup();
-    saharaLayer.addLayer(leaflet.polyline(westernSaharaNorthBorder, { color: '#ffffff', weight: isMini ? 4 : 5, opacity: 0.75, interactive: false }));
+    const saharaBorder = leaflet.layerGroup();
+    saharaBorder.addLayer(leaflet.polyline(westernSaharaNorthBorder, { color: '#ffffff', weight: isMini ? 4 : 5, opacity: 0.75, interactive: false }));
     const saharaLine = leaflet.polyline(westernSaharaNorthBorder, { color: '#1f2d3a', weight: isMini ? 2 : 2.5, opacity: 1, dashArray: null });
     saharaLine.bindTooltip('Sahara occidental · limite nord (27°40′ N) · tracé indicatif', { sticky: true });
-    saharaLayer.addLayer(saharaLine);
+    saharaBorder.addLayer(saharaLine);
+    const syncSaharaBorder = (basemapId) => {
+      if (basemaps.hasBorders(basemapId)) saharaLayer.addLayer(saharaBorder);
+      else saharaLayer.removeLayer(saharaBorder);
+    };
+    syncSaharaBorder(basemaps.getActive());
+    basemaps.subscribe(syncSaharaBorder);
     if (!isMini) {
       const saharaLabel = leaflet.circleMarker(westernSaharaLabelPoint, { radius: 1, opacity: 0, fillOpacity: 0, interactive: false });
       saharaLabel.bindTooltip('Sahara occidental', { permanent: true, direction: 'center', className: 'map-region-label' });
@@ -1409,12 +1429,24 @@ function initializeLeafletMaps(root) {
         { label: 'Sahara occidental', title: 'Sahara occidental · limite nord', layer: saharaLayer, color: '#1f2d3a' }
       ]);
     }
-    if (visibleProjects.length) {
-      const selectedSlug = element.dataset.selectedProject || state.selectedMapProject;
-      const selected = visibleProjects.find((project) => project.slug === selectedSlug);
+    // Vue initiale : carte nationale = toute l'Algérie, vue d'ensemble (pas de zoom sur un projet) ;
+    // aucune fenêtre (popup) n'est ouverte au chargement. Le zoom + popup n'ont lieu que sur
+    // une action explicite de l'utilisateur (clic sur un projet de la liste).
+    const isNational = element.id === 'national-leaflet-map';
+    const focusSlug = isNational ? state.mapFocusSlug : null;
+    state.mapFocusSlug = null;
+    const focused = focusSlug ? visibleProjects.find((project) => project.slug === focusSlug) : null;
+    if (isNational) {
+      if (focused) {
+        map.setView(focused.coordinates, 7);
+        markerBySlug.get(focused.slug)?.openPopup();
+      } else {
+        map.fitBounds(ALGERIA_BOUNDS, { padding: [24, 24], maxZoom: 7 });
+      }
+    } else if (visibleProjects.length) {
+      const selected = visibleProjects.find((project) => project.slug === element.dataset.selectedProject);
       if (selected) {
         map.setView(selected.coordinates, isMini ? 5 : 7);
-        markerBySlug.get(selected.slug)?.openPopup();
       } else {
         const allPoints = visibleProjects.map((project) => project.coordinates);
         map.fitBounds(leaflet.latLngBounds(allPoints), { padding: [24, 24], maxZoom: isMini ? 5 : 7 });
@@ -1424,9 +1456,6 @@ function initializeLeafletMaps(root) {
     } else {
       map.setView([28, 2.5], 4);
     }
-    if (state.mapFitRequested && element.id === 'national-leaflet-map') {
-      map.fitBounds(leaflet.latLngBounds(visibleWilayas.map((item) => [item.lat, item.lon])), { padding: [24, 24] });
-    }
     const fitPoints = [
       ...visibleWilayas.map((item) => [item.lat, item.lon]),
       ...visibleProjects.map((project) => project.coordinates)
@@ -1435,7 +1464,7 @@ function initializeLeafletMaps(root) {
       map,
       element,
       markersBySlug: markerBySlug,
-      fitBounds: fitPoints.length ? leaflet.latLngBounds(fitPoints) : null,
+      fitBounds: isNational ? leaflet.latLngBounds(ALGERIA_BOUNDS) : fitPoints.length ? leaflet.latLngBounds(fitPoints) : null,
       observer: null,
       toolbar
     };
@@ -1447,7 +1476,7 @@ function initializeLeafletMaps(root) {
       map.invalidateSize({ animate: false });
       if (pendingRefit && element.clientWidth && element.clientHeight) {
         pendingRefit = false;
-        if (entry.fitBounds) map.fitBounds(entry.fitBounds, { padding: [24, 24], maxZoom: isMini ? 5 : 7 });
+        if (entry.fitBounds && !(isNational && focused)) map.fitBounds(entry.fitBounds, { padding: isNational ? [24, 24] : [24, 24], maxZoom: isMini ? 5 : 7 });
       }
     };
     requestAnimationFrame(refreshSize);
@@ -1457,7 +1486,6 @@ function initializeLeafletMaps(root) {
       entry.observer.observe(element);
     }
   });
-  state.mapFitRequested = false;
 }
 
 function updateMapProjectSelection(project) {
@@ -1519,7 +1547,7 @@ function renderLogin(error = '') {
   document.body.classList.remove('layout-menu-fixed');
   const authHeading = state.lang === 'ar' ? 'دخول مؤسسي آمن' : 'Accès à votre espace';
   const authCopy = state.lang === 'ar' ? 'استخدم حساب العرض التجريبي المخصص لدورك.' : 'Connectez-vous à votre espace institutionnel pour accéder aux projets et indicateurs autorisés.';
-  app.innerHTML = `<main class="login-page"><section class="login-identity"><div class="identity-top"><div class="cned-mark"><span class="cned-mark-icon"><i class="bx bx-building-house"></i></span><span class="cned-mark-name"><strong>CNED DIGITAL</strong><span>GOUVERNANCE · PERFORMANCE · TERRITOIRES</span></span></div></div><div class="identity-copy"><span class="identity-kicker">Caisse Nationale d’Équipement pour le Développement</span><h1>Piloter les investissements publics.<br>Coordonner les acteurs.<br>Maîtriser la performance.</h1><p>Une plateforme de gouvernance et d’intelligence dédiée au suivi des projets d’infrastructure et des investissements publics.</p></div><div class="identity-footer"><span>République Algérienne Démocratique et Populaire</span><span class="arabic">الصندوق الوطني للتجهيز والتنمية</span><span class="identity-image-credit">Photo : <a href="https://commons.wikimedia.org/wiki/File:Martyrs%27_Memorial_seen_from_Le_Jardin_d%27Essai_(34985839343).jpg" target="_blank" rel="noopener noreferrer">Chris Hunkeler · CC BY-SA 2.0</a></span></div></section><section class="login-panel"><button class="btn btn-sm btn-outline-secondary login-language" data-action="language">${state.lang === 'fr' ? 'العربية' : 'Français'}</button><div class="login-panel-inner"><span class="eyebrow">Portail institutionnel</span><h2>${escapeHTML(authHeading)}</h2><p class="login-intro">${escapeHTML(authCopy)}</p>${error ? `<div class="alert alert-danger py-2" role="alert">${escapeHTML(error)}</div>` : ''}<form data-form="login" novalidate><div class="mb-3"><label class="form-label" for="login-user">${state.lang === 'ar' ? 'اسم المستخدم أو البريد المؤسسي' : 'Identifiant ou courriel institutionnel'}</label><input class="form-control" id="login-user" name="username" autocomplete="username" required placeholder="ex. pmo" /></div><div class="mb-3"><label class="form-label" for="login-password">${state.lang === 'ar' ? 'كلمة المرور' : 'Mot de passe'}</label><div class="input-group input-group-merge"><input class="form-control" id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="••••••••"><button class="btn btn-outline-secondary" type="button" data-action="toggle-password" aria-label="Afficher le mot de passe"><i class="bx bx-hide"></i></button></div></div><div class="d-flex align-items-center justify-content-between mb-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="remember" name="remember"><label class="form-check-label small" for="remember">Se souvenir de moi</label></div><button class="btn btn-link p-0 small" type="button" data-action="forgot-password">Mot de passe oublié ?</button></div><button class="btn btn-primary w-100 py-2" type="submit"><span data-login-label>Se connecter</span><span class="spinner-border spinner-border-sm ms-2 d-none" data-login-spinner></span></button></form><details class="login-demo"><summary>Accès de démonstration — comptes locaux</summary><p class="small text-muted mt-2 mb-2">Prototype frontend uniquement. Ces identifiants fictifs ne constituent pas un mécanisme d’authentification sécurisé.</p><div class="demo-account-list">${demoAccounts.map((account) => `<button class="demo-account" type="button" data-demo-user="${escapeHTML(account.username)}"><strong>${escapeHTML(account.role)}</strong><span>${escapeHTML(account.username)} · ${escapeHTML(account.password)}</span></button>`).join('')}</div></details><div class="d-flex justify-content-between mt-4 small text-muted"><span>© CNED DIGITAL · Démonstrateur</span><span>FR / AR</span></div></div></section></main>`;
+  app.innerHTML = `<main class="login-page"><section class="login-identity"><div class="identity-top"><div class="brand-mark"><img class="brand-mark-logo" src="assets/img/taqaddum/logo.svg" width="64" height="64" alt="Logo TAQADDUM" decoding="async"><span class="brand-mark-name"><strong>TAQADDUM</strong><span>GOUVERNANCE · PERFORMANCE · TERRITOIRES</span></span></div></div><div class="identity-copy"><span class="identity-kicker">Caisse Nationale d’Équipement pour le Développement</span><h1>Piloter les investissements publics.<br>Coordonner les acteurs.<br>Maîtriser la performance.</h1><p>Une plateforme de gouvernance et d’intelligence dédiée au suivi des projets d’infrastructure et des investissements publics.</p></div><div class="identity-footer"><span>République Algérienne Démocratique et Populaire</span><span class="arabic">الصندوق الوطني للتجهيز والتنمية</span><span class="identity-image-credit">Photo : <a href="https://commons.wikimedia.org/wiki/File:Martyrs%27_Memorial_seen_from_Le_Jardin_d%27Essai_(34985839343).jpg" target="_blank" rel="noopener noreferrer">Chris Hunkeler · CC BY-SA 2.0</a></span></div></section><section class="login-panel"><button class="btn btn-sm btn-outline-secondary login-language" data-action="language">${state.lang === 'fr' ? 'العربية' : 'Français'}</button><div class="login-panel-inner"><span class="eyebrow">Portail institutionnel</span><h2>${escapeHTML(authHeading)}</h2><p class="login-intro">${escapeHTML(authCopy)}</p>${error ? `<div class="alert alert-danger py-2" role="alert">${escapeHTML(error)}</div>` : ''}<form data-form="login" novalidate><div class="mb-3"><label class="form-label" for="login-user">${state.lang === 'ar' ? 'اسم المستخدم أو البريد المؤسسي' : 'Identifiant ou courriel institutionnel'}</label><input class="form-control" id="login-user" name="username" autocomplete="username" required placeholder="ex. pmo" /></div><div class="mb-3"><label class="form-label" for="login-password">${state.lang === 'ar' ? 'كلمة المرور' : 'Mot de passe'}</label><div class="input-group input-group-merge"><input class="form-control" id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="••••••••"><button class="btn btn-outline-secondary" type="button" data-action="toggle-password" aria-label="Afficher le mot de passe"><i class="bx bx-hide"></i></button></div></div><div class="d-flex align-items-center justify-content-between mb-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="remember" name="remember"><label class="form-check-label small" for="remember">Se souvenir de moi</label></div><button class="btn btn-link p-0 small" type="button" data-action="forgot-password">Mot de passe oublié ?</button></div><button class="btn btn-primary w-100 py-2" type="submit"><span data-login-label>Se connecter</span><span class="spinner-border spinner-border-sm ms-2 d-none" data-login-spinner></span></button></form><details class="login-demo"><summary>Accès de démonstration — comptes locaux</summary><p class="small text-muted mt-2 mb-2">Prototype frontend uniquement. Ces identifiants fictifs ne constituent pas un mécanisme d’authentification sécurisé.</p><div class="demo-account-list">${demoAccounts.map((account) => `<button class="demo-account" type="button" data-demo-user="${escapeHTML(account.username)}"><strong>${escapeHTML(account.role)}</strong><span>${escapeHTML(account.username)} · ${escapeHTML(account.password)}</span></button>`).join('')}</div></details><div class="d-flex justify-content-between mt-4 small text-muted"><span>© TAQADDUM · Démonstrateur</span><span>FR / AR</span></div></div></section></main>`;
 }
 
 function appToast(message) {
@@ -1773,6 +1801,7 @@ app.addEventListener('click', (event) => {
   }
   if (target.dataset.mapProject) {
     state.selectedMapProject = target.dataset.mapProject;
+    if (state.mapView === 'map') state.mapFocusSlug = target.dataset.mapProject;
     renderCurrentPage();
     return;
   }
@@ -1783,7 +1812,7 @@ app.addEventListener('click', (event) => {
   if (target.hasAttribute('data-map-fit')) {
     const instance = leafMaps.find(({ element }) => element.id === 'national-leaflet-map');
     if (instance?.fitBounds) {
-      instance.map.fitBounds(instance.fitBounds, { padding: [24, 24] });
+      instance.map.fitBounds(instance.fitBounds, { padding: [24, 24], maxZoom: 7 });
     }
     return;
   }
@@ -1796,6 +1825,7 @@ app.addEventListener('click', (event) => {
   }
   if (target.hasAttribute('data-map-toggle')) {
     state.mapView = state.mapView === 'map' ? 'list' : 'map';
+    state.mapFocusSlug = null;
     renderCurrentPage();
     return;
   }
@@ -2101,7 +2131,7 @@ document.addEventListener('click', (event) => {
     appToast('Ce document n’est pas accessible dans votre périmètre.');
     return;
   }
-  const content = `CNED DIGITAL — Exemple de téléchargement\n${documentRecord.name}\n${projectById(documentRecord.projectId)?.shortName || ''}\nDonnées de démonstration uniquement.`;
+  const content = `TAQADDUM — Exemple de téléchargement\n${documentRecord.name}\n${projectById(documentRecord.projectId)?.shortName || ''}\nDonnées de démonstration uniquement.`;
   const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }));
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -2131,13 +2161,13 @@ function exportData(type) {
       return [item.KPI_ID, item.Nom_KPI, item.Importance, item.Phase, formatValue(item, value), item.Unité, rolePermission('kpis', item.KPI_ID), item.Sens, item.Vert, item.Orange, item.Rouge];
     })];
   } else {
-    rows = [['Type', 'Périmètre', 'Date', 'Note'], [type, role().name, '2026-11-13', 'Rapport illustratif CNED DIGITAL']];
+    rows = [['Type', 'Périmètre', 'Date', 'Note'], [type, role().name, '2026-11-13', 'Rapport illustratif TAQADDUM']];
   }
   const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
   const url = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `cned-digital-${type}-illustratif.csv`;
+  anchor.download = `taqaddum-${type}-illustratif.csv`;
   anchor.click();
   URL.revokeObjectURL(url);
   appToast('Export CSV généré à partir des données locales de démonstration.');

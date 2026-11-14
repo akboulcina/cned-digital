@@ -1,6 +1,6 @@
-# CNED DIGITAL
+# TAQADDUM
 
-CNED DIGITAL is a frontend-only institutional demonstration of a project governance and infrastructure investment monitoring platform. The UI preserves the supplied Sneat Bootstrap 5 layout, styles, assets, and responsive navigation.
+TAQADDUM (formerly CNED DIGITAL) is a frontend-only institutional demonstration of a project governance and infrastructure investment monitoring platform. The UI preserves the supplied Sneat Bootstrap 5 layout, styles, assets, and responsive navigation.
 
 The role-based demo portfolio, KPI, alert, document, message, and field-report data is illustrative. Direction and PMO reference views separately show an attributed historical CNED sample. The application does not connect to an institutional backend, database, Ministry of Finance, Treasury, external messaging, or GPS. Demo authentication is local browser state and is not production security.
 
@@ -64,7 +64,7 @@ The 69 bilingual wilaya records in `data/wilayas.js` use indicative points deriv
 
 The login image is Chris Hunkeler’s [Maqam Echahid photograph](https://commons.wikimedia.org/wiki/File:Martyrs%27_Memorial_seen_from_Le_Jardin_d%27Essai_(34985839343).jpg), used under CC BY-SA 2.0; attribution is also displayed on the login screen.
 
-The original Sneat archive and workbook remain in `references/`. Sneat assets and pages are retained in the repository; the root `index.html` is the CNED DIGITAL application entry point.
+The original Sneat archive and workbook remain in `references/`. Sneat assets and pages are retained in the repository; the root `index.html` is the TAQADDUM application entry point.
 
 ## Prototype interactions
 

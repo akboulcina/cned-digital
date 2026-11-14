@@ -60,37 +60,33 @@ body {
   z-index: 1;
 }
 
-.cned-mark {
+.brand-mark {
   display: inline-flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
-.cned-mark-icon {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.48);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  font-size: 1.65rem;
+.brand-mark-logo {
+  display: block;
+  width: 64px;
+  height: 64px;
+  flex: none;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
 }
 
-.cned-mark-name {
+.brand-mark-name {
   display: grid;
   line-height: 1.2;
 }
 
-.cned-mark-name strong {
-  font-size: 1.15rem;
-  letter-spacing: 0.11em;
+.brand-mark-name strong {
+  font-size: 1.45rem;
+  letter-spacing: 0.16em;
 }
 
-.cned-mark-name span {
-  margin-top: 0.25rem;
-  color: rgba(255, 255, 255, 0.73);
+.brand-mark-name span {
+  margin-top: 0.3rem;
+  color: rgba(255, 255, 255, 0.78);
   font-size: 0.68rem;
   letter-spacing: 0.04em;
 }
@@ -258,17 +254,14 @@ body {
   color: var(--cned-navy);
   font-size: 1rem;
   letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.shell-brand-icon {
-  display: grid;
-  width: 31px;
-  height: 31px;
-  place-items: center;
-  border-radius: 9px;
-  background: var(--cned-navy);
-  color: #fff;
-  font-size: 1rem;
+.shell-brand-logo {
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex: none;
 }
 
 .app-brand-link {
