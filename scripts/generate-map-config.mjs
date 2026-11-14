@@ -33,9 +33,6 @@ if (apiKey) {
   if (parsedUrl.protocol !== 'https:') {
     throw new Error('MAP_TILE_URL must use HTTPS.');
   }
-  if (/(^|\.)tile\.openstreetmap\.(org|fr)$/i.test(parsedUrl.hostname)) {
-    throw new Error("OpenStreetMap's public tile servers cannot be configured as a custom provider.");
-  }
   if (!['{z}', '{x}', '{y}'].every((placeholder) => customTileUrl.includes(placeholder))) {
     throw new Error('MAP_TILE_URL must include {z}, {x}, and {y} tile placeholders.');
   }

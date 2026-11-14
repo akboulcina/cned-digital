@@ -13,17 +13,30 @@ npm install --legacy-peer-deps
 npm start
 ```
 
-The legacy template has peer-dependency constraints that require npm’s compatibility flag. Open [http://localhost:8080](http://localhost:8080). Python 3 is required for the static server. Leaflet is installed from the package manifest. The basemap defaults to an unconfigured state and makes no tile requests until a provider is configured; project markers and all local wilaya points remain interactive without tiles.
+The legacy template has peer-dependency constraints that require npm’s compatibility flag. Open [http://localhost:8080](http://localhost:8080). Python 3 is required for the static server. Leaflet 1.9.4 is **vendored** in `libs/leaflet/`, so the map works without `npm install` and on any static host.
 
-### Configure map tiles
+### Map and basemaps (free, no API key)
 
-For the recommended MapTiler provider, copy `.env.example` to `.env`, set `MAPTILER_API_KEY` to a key from your MapTiler account, then run `npm start` again. `prestart` generates the ignored `map-config.json` from environment variables, so the key is not committed. Browser tile requests necessarily expose the key to visitors: create a dedicated application key, restrict allowed HTTP origins to the app's local/staging/production domains, monitor quotas, and use a MapTiler plan that permits raster tiles for your deployment. `MAPTILER_STYLE` defaults to `streets-v2`.
+The map works out of the box with free basemaps that need no account and no key. The layer control (top right of the map) lets the user switch between:
 
-Alternatively, set `MAP_TILE_URL`, `MAP_TILE_ATTRIBUTION`, and `MAP_TILE_ATTRIBUTION_URL` for another HTTPS XYZ provider. The URL must contain `{z}`, `{x}`, and `{y}`. The public OpenStreetMap tile servers are explicitly rejected as a custom provider.
+| Basemap | Provider |
+| --- | --- |
+| Plan (CARTO Voyager) — default | CARTO / OpenStreetMap |
+| Plan OpenStreetMap | OpenStreetMap (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`) |
+| Clair / Sombre | CARTO |
+| Satellite / Rues | Esri |
+| Relief | OpenTopoMap |
 
-MapTiler attribution and its logo (for free accounts) are displayed on maps. MapTiler requires customers to use their own key and prohibits bulk tile downloading and server-side caching/redistribution; this app does not proxy or cache tiles and requests them directly from the provider. See the [MapTiler API key guidance](https://docs.maptiler.com/guides/credentials/api-key/), [attribution guidance](https://docs.maptiler.com/guides/map-design/attribution/add-attribution/), and [Cloud terms](https://www.maptiler.com/terms/cloud/). Tile access requires an internet connection. If no provider is configured or a provider fails, a visible status message appears and local project/wilaya overlays stay available; failed tile layers are removed without automatic retry.
+The last choice is remembered in `localStorage` (`cned-basemap`). If the selected basemap cannot load (4 failed tiles before any success), the map automatically switches to the next available one and shows a short message; project and wilaya overlays always remain available. To add or change basemaps, edit `basemapCatalog` in `app.js`.
 
-The previous basemap used Leaflet's `{s}.tile.openstreetmap.org` subdomain template. OSM's [tile policy](https://operations.osmfoundation.org/policies/tiles/) specifies the canonical `https://tile.openstreetmap.org/{z}/{x}/{y}.png` endpoint, warns that alternate subdomains may be withdrawn, and reserves the right to block use that degrades the volunteer service. The 403 establishes that the request was blocked, but the response alone does not identify whether the trigger was host choice, traffic, or another policy condition. CNED DIGITAL no longer requests tiles from OSM's public servers.
+Notes:
+
+- The app must be served over `http(s)` (for example `npm start`, or any static host). Opening `index.html` through `file://` sends no `Referer`, which OpenStreetMap's [tile policy](https://operations.osmfoundation.org/policies/tiles/) rejects; `index.html` sets `referrer: strict-origin-when-cross-origin` for served pages.
+- These free public tile servers are suitable for a prototype and light traffic. For heavy production use, add your own provider below.
+
+### Optional: additional tile provider
+
+Set `MAP_TILE_URL`, `MAP_TILE_ATTRIBUTION` and `MAP_TILE_ATTRIBUTION_URL` (HTTPS, with `{z}`, `{x}`, `{y}`) in `.env`, or `MAPTILER_API_KEY` for MapTiler, then run `npm start`. `prestart` generates the ignored `map-config.json`; the provider then appears as the first basemap. This is entirely optional.
 
 ## Demo accounts
 

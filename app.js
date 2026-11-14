@@ -1121,7 +1121,10 @@ function renderCurrentPage() {
 }
 
 function disposeLeafletMaps() {
-  leafMaps.forEach(({ map }) => map.remove());
+  leafMaps.forEach(({ map, observer }) => {
+    observer?.disconnect();
+    map.remove();
+  });
   leafMaps = [];
 }
 
@@ -1145,6 +1148,104 @@ function renderPageByKey(page) {
   return `<div class="empty-state"><i class="bx bx-error-circle"></i>Cette section n’est pas disponible pour ce rôle.</div>`;
 }
 
+const BASEMAP_STORAGE_KEY = 'cned-basemap';
+
+// Fonds de carte gratuits, sans clé d'API. Le premier de la liste (ou le dernier choisi
+// par l'utilisateur) est affiché ; en cas d'échec, la carte bascule automatiquement sur le suivant.
+const osmCredit = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
+const cartoCredit = `${osmCredit} &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>`;
+const basemapCatalog = [
+  { id: 'carto-voyager', label: 'Plan (CARTO Voyager)', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', options: { subdomains: 'abcd', maxZoom: 20, attribution: cartoCredit } },
+  { id: 'osm', label: 'Plan OpenStreetMap', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', options: { maxZoom: 19, attribution: osmCredit } },
+  { id: 'carto-light', label: 'Clair (CARTO)', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', options: { subdomains: 'abcd', maxZoom: 20, attribution: cartoCredit } },
+  { id: 'carto-dark', label: 'Sombre (CARTO)', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', options: { subdomains: 'abcd', maxZoom: 20, attribution: cartoCredit } },
+  { id: 'esri-imagery', label: 'Satellite (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' } },
+  { id: 'esri-streets', label: 'Rues (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, and others' } },
+  { id: 'opentopomap', label: 'Relief (OpenTopoMap)', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', options: { subdomains: 'abc', maxZoom: 17, attribution: `${osmCredit}, SRTM &mdash; &copy; <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a> (CC-BY-SA)` } }
+];
+
+function availableBasemaps() {
+  const list = [...basemapCatalog];
+  // Fournisseur personnalisé facultatif (map-config.json généré par scripts/generate-map-config.mjs).
+  if (mapConfig?.provider && mapConfig?.url) {
+    const attribution = mapConfig.attributionUrl
+      ? `<a href="${escapeHTML(mapConfig.attributionUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(mapConfig.attribution || mapConfig.provider)}</a>`
+      : escapeHTML(mapConfig.attribution || mapConfig.provider);
+    list.unshift({ id: 'custom', label: mapConfig.provider, url: mapConfig.url, options: { maxZoom: mapConfig.maxZoom || 19, attribution } });
+  }
+  return list;
+}
+
+function readSavedBasemap() {
+  try {
+    return localStorage.getItem(BASEMAP_STORAGE_KEY);
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveBasemap(id) {
+  try {
+    localStorage.setItem(BASEMAP_STORAGE_KEY, id);
+  } catch (error) {
+    /* stockage indisponible : le choix ne sera simplement pas mémorisé */
+  }
+}
+
+function setupBasemaps(leaflet, map, showStatus) {
+  const catalog = availableBasemaps();
+  const layers = new Map();
+  const idByLayer = new Map();
+  const failed = new Set();
+  catalog.forEach((definition) => {
+    const layer = leaflet.tileLayer(definition.url, { ...definition.options, crossOrigin: false });
+    layers.set(definition.id, layer);
+    idByLayer.set(layer, definition.id);
+  });
+  const savedId = readSavedBasemap();
+  let activeId = layers.has(savedId) ? savedId : catalog[0].id;
+
+  const activate = (id) => {
+    if (activeId && layers.get(activeId) && map.hasLayer(layers.get(activeId))) map.removeLayer(layers.get(activeId));
+    activeId = id;
+    layers.get(id).addTo(map);
+  };
+
+  const fallbackFrom = (id) => {
+    failed.add(id);
+    const next = catalog.find((definition) => !failed.has(definition.id));
+    if (next) {
+      activate(next.id);
+      showStatus(`Fond de carte « ${catalog.find((d) => d.id === id).label } » indisponible : bascule automatique sur « ${next.label} ».`);
+    } else {
+      showStatus('Aucun fond de carte n’est joignable (vérifiez la connexion Internet). Les projets et les wilayas restent affichés.');
+    }
+  };
+
+  layers.forEach((layer, id) => {
+    let loaded = false;
+    let errors = 0;
+    layer.on('tileload', () => { loaded = true; });
+    layer.on('tileerror', () => {
+      errors += 1;
+      if (!loaded && errors >= 4 && activeId === id && map.hasLayer(layer)) fallbackFrom(id);
+    });
+  });
+
+  map.on('baselayerchange', (event) => {
+    const id = idByLayer.get(event.layer);
+    if (id) {
+      activeId = id;
+      saveBasemap(id);
+    }
+  });
+
+  layers.get(activeId).addTo(map);
+  return {
+    baseLayers: Object.fromEntries(catalog.map((definition) => [definition.label, layers.get(definition.id)]))
+  };
+}
+
 function initializeLeafletMaps(root) {
   const leaflet = window.L;
   root.querySelectorAll('[data-leaflet-map]').forEach((element) => {
@@ -1163,9 +1264,8 @@ function initializeLeafletMaps(root) {
     const visibleWilayas = wilayaCodes
       ? wilayas.filter((item) => wilayaCodes.includes(item.code))
       : wilayas;
-    const map = leaflet.map(element, { scrollWheelZoom: false, zoomControl: !element.classList.contains('leaflet-mini-map') });
-    const providerAvailable = mapConfig?.provider && mapConfig?.url;
-    let base = null;
+    const isMini = element.classList.contains('leaflet-mini-map');
+    const map = leaflet.map(element, { scrollWheelZoom: false, zoomControl: !isMini });
     let layerControl = null;
     const providerStatus = leaflet.control({ position: 'topright' });
     let statusElement;
@@ -1173,7 +1273,7 @@ function initializeLeafletMaps(root) {
       statusElement = leaflet.DomUtil.create('div', 'map-provider-status leaflet-control');
       statusElement.setAttribute('role', 'status');
       statusElement.setAttribute('aria-live', 'polite');
-      statusElement.hidden = Boolean(providerAvailable);
+      statusElement.hidden = true;
       return statusElement;
     };
     providerStatus.addTo(map);
@@ -1185,43 +1285,7 @@ function initializeLeafletMaps(root) {
       const messageElement = element.closest('.card-body')?.querySelector('[data-map-message]');
       if (messageElement) messageElement.textContent = message;
     };
-    if (providerAvailable) {
-      const attribution = mapConfig.provider === 'MapTiler'
-        ? '<a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener noreferrer">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>'
-        : `<a href="${escapeHTML(mapConfig.attributionUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(mapConfig.attribution)}</a>`;
-      base = leaflet.tileLayer(mapConfig.url, {
-        maxZoom: mapConfig.maxZoom || 19,
-        attribution
-      });
-      let tileFailureHandled = false;
-      base.on('tileerror', () => {
-        if (tileFailureHandled) return;
-        tileFailureHandled = true;
-        base.off('tileerror');
-        base.remove();
-        if (layerControl) layerControl.removeLayer(base);
-        showProviderStatus(`${mapConfig.provider} tiles are unavailable. Automatic retries are disabled; project and wilaya data remain available.`);
-      });
-      base.addTo(map);
-      if (mapConfig.provider === 'MapTiler' && mapConfig.logoUrl) {
-        const logoControl = leaflet.control({ position: 'bottomleft' });
-        logoControl.onAdd = () => {
-          const link = leaflet.DomUtil.create('a', 'map-provider-logo leaflet-control');
-          link.href = 'https://www.maptiler.com/';
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          link.setAttribute('aria-label', 'MapTiler');
-          const image = document.createElement('img');
-          image.src = mapConfig.logoUrl;
-          image.alt = 'MapTiler';
-          link.append(image);
-          return link;
-        };
-        logoControl.addTo(map);
-      }
-    } else {
-      showProviderStatus('Map tiles are not configured. Set MAPTILER_API_KEY or a custom MAP_TILE_URL with attribution; project and wilaya data remain available.');
-    }
+    const basemaps = setupBasemaps(leaflet, map, showProviderStatus);
     const wilayaLayer = leaflet.layerGroup();
     const statusLayers = {
       'Projets · En cours': leaflet.layerGroup(),
@@ -1279,11 +1343,10 @@ function initializeLeafletMaps(root) {
         criticalLayer.addLayer(critical);
       }
     });
-    const isMini = element.classList.contains('leaflet-mini-map');
     if (!isMini) {
       wilayaLayer.addTo(map);
       layerControl = leaflet.control.layers(
-        providerAvailable ? { [mapConfig.provider]: base } : {},
+        basemaps.baseLayers,
         {
           'Wilayas · repères indicatifs': wilayaLayer,
           ...statusLayers,
@@ -1318,12 +1381,30 @@ function initializeLeafletMaps(root) {
       ...visibleWilayas.map((item) => [item.lat, item.lon]),
       ...visibleProjects.map((project) => project.coordinates)
     ];
-    leafMaps.push({
+    const entry = {
       map,
       element,
       markersBySlug: markerBySlug,
-      fitBounds: fitPoints.length ? leaflet.latLngBounds(fitPoints) : null
-    });
+      fitBounds: fitPoints.length ? leaflet.latLngBounds(fitPoints) : null,
+      observer: null
+    };
+    leafMaps.push(entry);
+    // La carte peut être créée alors que son conteneur n'a pas encore sa taille finale
+    // (mise en page responsive, onglet, menu latéral) : on recalcule la taille ensuite.
+    let pendingRefit = !element.clientWidth || !element.clientHeight;
+    const refreshSize = () => {
+      map.invalidateSize({ animate: false });
+      if (pendingRefit && element.clientWidth && element.clientHeight) {
+        pendingRefit = false;
+        if (entry.fitBounds) map.fitBounds(entry.fitBounds, { padding: [24, 24], maxZoom: isMini ? 5 : 7 });
+      }
+    };
+    requestAnimationFrame(refreshSize);
+    setTimeout(refreshSize, 300);
+    if ('ResizeObserver' in window) {
+      entry.observer = new ResizeObserver(refreshSize);
+      entry.observer.observe(element);
+    }
   });
   state.mapFitRequested = false;
 }

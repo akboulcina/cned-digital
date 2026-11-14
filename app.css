@@ -1432,6 +1432,19 @@ body {
   height: 270px;
 }
 
+/* Les styles globaux de Bootstrap/Sneat (img { max-width: 100%; height: auto }) déforment les tuiles Leaflet. */
+.leaflet-container img,
+.leaflet-container .leaflet-tile,
+.leaflet-container .leaflet-marker-icon,
+.leaflet-container .leaflet-marker-shadow {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.leaflet-container {
+  font-family: inherit;
+}
+
 .leaflet-map .leaflet-control-layers,
 .leaflet-mini-map .leaflet-control-layers {
   max-width: calc(100% - 1rem);
