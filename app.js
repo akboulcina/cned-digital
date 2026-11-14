@@ -1152,10 +1152,10 @@ function renderPageByKey(page) {
 
 const BASEMAP_STORAGE_KEY = 'cned-basemap';
 
-// Fonds de carte gratuits, sans clé d'API. Les tuiles OSM publiques (tile.openstreetmap.org) sont volontairement
-// exclues : elles renvoient « 403 Access blocked » depuis les domaines de développement (Codespaces, etc.).
-// Les fonds CARTO reposent déjà sur les données OpenStreetMap. Le premier de la liste (ou le dernier choisi
-// par l'utilisateur) est affiché ; en cas d'échec, la carte bascule automatiquement sur le suivant.
+// Fonds de carte gratuits, sans clé d'API. Les tuiles OSM publiques (tile.openstreetmap.org) et les fonds CARTO
+// sont volontairement exclus (« 403 Access blocked » / indisponibles depuis certains domaines de développement
+// comme Codespaces). Le premier de la liste (ou le dernier choisi par l'utilisateur) est affiché ; en cas
+// d'échec, la carte bascule automatiquement sur le suivant.
 const osmCredit = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
 const basemapCatalog = [
   { id: 'esri-streets', label: 'Plan', icon: 'bx-map-alt', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, and others' } },
