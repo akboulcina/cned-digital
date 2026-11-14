@@ -1150,13 +1150,14 @@ function renderPageByKey(page) {
 
 const BASEMAP_STORAGE_KEY = 'cned-basemap';
 
-// Fonds de carte gratuits, sans clé d'API. Le premier de la liste (ou le dernier choisi
+// Fonds de carte gratuits, sans clé d'API. Les tuiles OSM publiques (tile.openstreetmap.org) sont volontairement
+// exclues : elles renvoient « 403 Access blocked » depuis les domaines de développement (Codespaces, etc.).
+// Les fonds CARTO reposent déjà sur les données OpenStreetMap. Le premier de la liste (ou le dernier choisi
 // par l'utilisateur) est affiché ; en cas d'échec, la carte bascule automatiquement sur le suivant.
 const osmCredit = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
 const cartoCredit = `${osmCredit} &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>`;
 const basemapCatalog = [
   { id: 'carto-voyager', label: 'Plan (CARTO Voyager)', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', options: { subdomains: 'abcd', maxZoom: 20, attribution: cartoCredit } },
-  { id: 'osm', label: 'Plan OpenStreetMap', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', options: { maxZoom: 19, attribution: osmCredit } },
   { id: 'carto-light', label: 'Clair (CARTO)', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', options: { subdomains: 'abcd', maxZoom: 20, attribution: cartoCredit } },
   { id: 'carto-dark', label: 'Sombre (CARTO)', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', options: { subdomains: 'abcd', maxZoom: 20, attribution: cartoCredit } },
   { id: 'esri-imagery', label: 'Satellite (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' } },

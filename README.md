@@ -22,7 +22,6 @@ The map works out of the box with free basemaps that need no account and no key.
 | Basemap | Provider |
 | --- | --- |
 | Plan (CARTO Voyager) — default | CARTO / OpenStreetMap |
-| Plan OpenStreetMap | OpenStreetMap (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`) |
 | Clair / Sombre | CARTO |
 | Satellite / Rues | Esri |
 | Relief | OpenTopoMap |
@@ -31,7 +30,8 @@ The last choice is remembered in `localStorage` (`cned-basemap`). If the selecte
 
 Notes:
 
-- The app must be served over `http(s)` (for example `npm start`, or any static host). Opening `index.html` through `file://` sends no `Referer`, which OpenStreetMap's [tile policy](https://operations.osmfoundation.org/policies/tiles/) rejects; `index.html` sets `referrer: strict-origin-when-cross-origin` for served pages.
+- OpenStreetMap's own public tile server is intentionally not used: it answers `403 Access blocked` from development domains such as GitHub Codespaces (see its [tile policy](https://operations.osmfoundation.org/policies/tiles/)). The CARTO basemaps are built on OpenStreetMap data.
+- `npm start` runs `scripts/serve.py`, a static server that disables browser caching so a stale `app.js` is never served during development. After pulling new changes, do a hard refresh (Ctrl+Shift+R).
 - These free public tile servers are suitable for a prototype and light traffic. For heavy production use, add your own provider below.
 
 ### Optional: additional tile provider
