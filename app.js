@@ -10,6 +10,7 @@ import {
   referenceSummary
 } from './data/cned-reference.js';
 import { wilayas, wilayaSource } from './data/wilayas.js';
+import { westernSaharaLabelPoint, westernSaharaNorthBorder } from './data/western-sahara.js';
 
 const app = document.querySelector('#app');
 let leafMaps = [];
@@ -1121,8 +1122,9 @@ function renderCurrentPage() {
 }
 
 function disposeLeafletMaps() {
-  leafMaps.forEach(({ map, observer }) => {
+  leafMaps.forEach(({ map, observer, toolbar }) => {
     observer?.disconnect();
+    toolbar?.remove();
     map.remove();
   });
   leafMaps = [];
@@ -1155,14 +1157,10 @@ const BASEMAP_STORAGE_KEY = 'cned-basemap';
 // Les fonds CARTO reposent déjà sur les données OpenStreetMap. Le premier de la liste (ou le dernier choisi
 // par l'utilisateur) est affiché ; en cas d'échec, la carte bascule automatiquement sur le suivant.
 const osmCredit = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
-const cartoCredit = `${osmCredit} &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>`;
 const basemapCatalog = [
-  { id: 'carto-voyager', label: 'Plan (CARTO Voyager)', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', options: { subdomains: 'abcd', maxZoom: 20, attribution: cartoCredit } },
-  { id: 'carto-light', label: 'Clair (CARTO)', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', options: { subdomains: 'abcd', maxZoom: 20, attribution: cartoCredit } },
-  { id: 'carto-dark', label: 'Sombre (CARTO)', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', options: { subdomains: 'abcd', maxZoom: 20, attribution: cartoCredit } },
-  { id: 'esri-imagery', label: 'Satellite (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' } },
-  { id: 'esri-streets', label: 'Rues (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, and others' } },
-  { id: 'opentopomap', label: 'Relief (OpenTopoMap)', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', options: { subdomains: 'abc', maxZoom: 17, attribution: `${osmCredit}, SRTM &mdash; &copy; <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a> (CC-BY-SA)` } }
+  { id: 'esri-streets', label: 'Plan', icon: 'bx-map-alt', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, and others' } },
+  { id: 'esri-imagery', label: 'Satellite', icon: 'bx-world', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' } },
+  { id: 'opentopomap', label: 'Relief', icon: 'bx-landscape', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', options: { subdomains: 'abc', maxZoom: 17, attribution: `${osmCredit}, SRTM &mdash; &copy; <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a> (CC-BY-SA)` } }
 ];
 
 function availableBasemaps() {
@@ -1206,10 +1204,18 @@ function setupBasemaps(leaflet, map, showStatus) {
   const savedId = readSavedBasemap();
   let activeId = layers.has(savedId) ? savedId : catalog[0].id;
 
+  const api = { catalog, onChange: null, getActive: () => activeId };
   const activate = (id) => {
     if (activeId && layers.get(activeId) && map.hasLayer(layers.get(activeId))) map.removeLayer(layers.get(activeId));
     activeId = id;
     layers.get(id).addTo(map);
+    api.onChange?.(id);
+  };
+  api.select = (id) => {
+    if (!layers.has(id) || id === activeId) return;
+    failed.delete(id);
+    activate(id);
+    saveBasemap(id);
   };
 
   const fallbackFrom = (id) => {
@@ -1217,7 +1223,7 @@ function setupBasemaps(leaflet, map, showStatus) {
     const next = catalog.find((definition) => !failed.has(definition.id));
     if (next) {
       activate(next.id);
-      showStatus(`Fond de carte « ${catalog.find((d) => d.id === id).label } » indisponible : bascule automatique sur « ${next.label} ».`);
+      showStatus(`Fond de carte « ${catalog.find((d) => d.id === id).label} » indisponible : bascule automatique sur « ${next.label} ».`);
     } else {
       showStatus('Aucun fond de carte n’est joignable (vérifiez la connexion Internet). Les projets et les wilayas restent affichés.');
     }
@@ -1233,18 +1239,52 @@ function setupBasemaps(leaflet, map, showStatus) {
     });
   });
 
-  map.on('baselayerchange', (event) => {
-    const id = idByLayer.get(event.layer);
-    if (id) {
-      activeId = id;
-      saveBasemap(id);
+  layers.get(activeId).addTo(map);
+  return api;
+}
+
+// Barre d'outils placée au-dessus de la carte (fonds de carte + calques), à la place du contrôle
+// Leaflet flottant qui masquait une partie de la carte.
+function buildMapToolbar(map, element, basemaps, overlays) {
+  element.parentElement?.querySelectorAll(':scope > .map-toolbar').forEach((node) => node.remove());
+  const toolbar = document.createElement('div');
+  toolbar.className = 'map-toolbar';
+  const segmented = basemaps.catalog.map((definition) => `<button type="button" class="map-segment" data-basemap="${escapeHTML(definition.id)}" aria-pressed="false"><i class="bx ${escapeHTML(definition.icon || 'bx-map')}"></i><span>${escapeHTML(definition.label)}</span></button>`).join('');
+  const chips = overlays.map((overlay, index) => `<button type="button" class="map-chip" data-overlay="${index}" aria-pressed="false" title="${escapeHTML(overlay.title || overlay.label)}"><span class="map-chip-dot" style="--chip:${escapeHTML(overlay.color)}"></span>${escapeHTML(overlay.label)}</button>`).join('');
+  toolbar.innerHTML = `<div class="map-segmented" role="group" aria-label="Fond de carte">${segmented}</div><div class="map-chips" role="group" aria-label="Calques">${chips}</div>`;
+  const refreshBasemaps = (activeId) => {
+    toolbar.querySelectorAll('[data-basemap]').forEach((button) => {
+      const on = button.dataset.basemap === activeId;
+      button.classList.toggle('is-active', on);
+      button.setAttribute('aria-pressed', String(on));
+    });
+  };
+  const refreshOverlays = () => {
+    toolbar.querySelectorAll('[data-overlay]').forEach((button) => {
+      const on = map.hasLayer(overlays[Number(button.dataset.overlay)].layer);
+      button.classList.toggle('is-on', on);
+      button.setAttribute('aria-pressed', String(on));
+    });
+  };
+  toolbar.addEventListener('click', (event) => {
+    const basemapButton = event.target.closest('[data-basemap]');
+    if (basemapButton) {
+      basemaps.select(basemapButton.dataset.basemap);
+      return;
+    }
+    const overlayButton = event.target.closest('[data-overlay]');
+    if (overlayButton) {
+      const { layer } = overlays[Number(overlayButton.dataset.overlay)];
+      if (map.hasLayer(layer)) map.removeLayer(layer);
+      else layer.addTo(map);
+      refreshOverlays();
     }
   });
-
-  layers.get(activeId).addTo(map);
-  return {
-    baseLayers: Object.fromEntries(catalog.map((definition) => [definition.label, layers.get(definition.id)]))
-  };
+  basemaps.onChange = refreshBasemaps;
+  refreshBasemaps(basemaps.getActive());
+  refreshOverlays();
+  element.insertAdjacentElement('beforebegin', toolbar);
+  return toolbar;
 }
 
 function initializeLeafletMaps(root) {
@@ -1267,7 +1307,6 @@ function initializeLeafletMaps(root) {
       : wilayas;
     const isMini = element.classList.contains('leaflet-mini-map');
     const map = leaflet.map(element, { scrollWheelZoom: false, zoomControl: !isMini });
-    let layerControl = null;
     const providerStatus = leaflet.control({ position: 'topright' });
     let statusElement;
     providerStatus.onAdd = () => {
@@ -1344,22 +1383,32 @@ function initializeLeafletMaps(root) {
         criticalLayer.addLayer(critical);
       }
     });
+    // Sahara occidental : limite nord en trait continu (liseré blanc dessous pour le contraste).
+    const saharaLayer = leaflet.layerGroup();
+    saharaLayer.addLayer(leaflet.polyline(westernSaharaNorthBorder, { color: '#ffffff', weight: isMini ? 4 : 5, opacity: 0.75, interactive: false }));
+    const saharaLine = leaflet.polyline(westernSaharaNorthBorder, { color: '#1f2d3a', weight: isMini ? 2 : 2.5, opacity: 1, dashArray: null });
+    saharaLine.bindTooltip('Sahara occidental · limite nord (27°40′ N) · tracé indicatif', { sticky: true });
+    saharaLayer.addLayer(saharaLine);
     if (!isMini) {
-      wilayaLayer.addTo(map);
-      layerControl = leaflet.control.layers(
-        basemaps.baseLayers,
-        {
-          'Wilayas · repères indicatifs': wilayaLayer,
-          ...statusLayers,
-          'Alertes critiques': criticalLayer
-        },
-        { collapsed: window.innerWidth < 768 }
-      ).addTo(map);
-      leaflet.control.scale({ imperial: false }).addTo(map);
-    } else {
-      wilayaLayer.addTo(map);
+      const saharaLabel = leaflet.circleMarker(westernSaharaLabelPoint, { radius: 1, opacity: 0, fillOpacity: 0, interactive: false });
+      saharaLabel.bindTooltip('Sahara occidental', { permanent: true, direction: 'center', className: 'map-region-label' });
+      saharaLayer.addLayer(saharaLabel);
     }
+    wilayaLayer.addTo(map);
     Object.values(statusLayers).forEach((layer) => layer.addTo(map));
+    saharaLayer.addTo(map);
+    let toolbar = null;
+    if (!isMini) {
+      leaflet.control.scale({ imperial: false }).addTo(map);
+      toolbar = buildMapToolbar(map, element, basemaps, [
+        { label: 'Wilayas', title: 'Wilayas · repères indicatifs', layer: wilayaLayer, color: '#315b76' },
+        { label: 'En cours', title: 'Projets · En cours', layer: statusLayers['Projets · En cours'], color: '#428b6e' },
+        { label: 'En retard / surveillance', title: 'Projets · En retard / surveillance', layer: statusLayers['Projets · En retard / surveillance'], color: '#c97b21' },
+        { label: 'À l’arrêt', title: 'Projets · À l’arrêt', layer: statusLayers['Projets · À l’arrêt'], color: '#bf5550' },
+        { label: 'Alertes critiques', title: 'Alertes critiques', layer: criticalLayer, color: '#8f2d28' },
+        { label: 'Sahara occidental', title: 'Sahara occidental · limite nord', layer: saharaLayer, color: '#1f2d3a' }
+      ]);
+    }
     if (visibleProjects.length) {
       const selectedSlug = element.dataset.selectedProject || state.selectedMapProject;
       const selected = visibleProjects.find((project) => project.slug === selectedSlug);
@@ -1387,7 +1436,8 @@ function initializeLeafletMaps(root) {
       element,
       markersBySlug: markerBySlug,
       fitBounds: fitPoints.length ? leaflet.latLngBounds(fitPoints) : null,
-      observer: null
+      observer: null,
+      toolbar
     };
     leafMaps.push(entry);
     // La carte peut être créée alors que son conteneur n'a pas encore sa taille finale

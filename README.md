@@ -17,22 +17,25 @@ The legacy template has peer-dependency constraints that require npm’s compati
 
 ### Map and basemaps (free, no API key)
 
-The map works out of the box with free basemaps that need no account and no key. The layer control (top right of the map) lets the user switch between:
+The map works out of the box with free basemaps that need no account and no key. A toolbar above the map lets the user switch between:
 
 | Basemap | Provider |
 | --- | --- |
-| Plan (CARTO Voyager) — default | CARTO / OpenStreetMap |
-| Clair / Sombre | CARTO |
-| Satellite / Rues | Esri |
+| Plan — default | Esri World Street Map |
+| Satellite | Esri World Imagery |
 | Relief | OpenTopoMap |
 
-The last choice is remembered in `localStorage` (`cned-basemap`). If the selected basemap cannot load (4 failed tiles before any success), the map automatically switches to the next available one and shows a short message; project and wilaya overlays always remain available. To add or change basemaps, edit `basemapCatalog` in `app.js`.
+The same toolbar toggles the overlays (wilayas, projects by status, critical alerts, Western Sahara). The last basemap choice is remembered in `localStorage` (`cned-basemap`). If the selected basemap cannot load (4 failed tiles before any success), the map automatically switches to the next available one and shows a short message; project and wilaya overlays always remain available. To add or change basemaps, edit `basemapCatalog` in `app.js`.
 
 Notes:
 
-- OpenStreetMap's own public tile server is intentionally not used: it answers `403 Access blocked` from development domains such as GitHub Codespaces (see its [tile policy](https://operations.osmfoundation.org/policies/tiles/)). The CARTO basemaps are built on OpenStreetMap data.
+- OpenStreetMap's own public tile server and the CARTO basemaps are intentionally not used: they are blocked or unavailable from some development domains such as GitHub Codespaces (see OSM's [tile policy](https://operations.osmfoundation.org/policies/tiles/)).
 - `npm start` runs `scripts/serve.py`, a static server that disables browser caching so a stale `app.js` is never served during development. After pulling new changes, do a hard refresh (Ctrl+Shift+R).
 - These free public tile servers are suitable for a prototype and light traffic. For heavy production use, add your own provider below.
+
+### Western Sahara line
+
+`data/western-sahara.js` holds an indicative solid line for the northern limit of Western Sahara (parallel 27°40′ N, from the Atlantic coast to the 8°40′ W meridian) and the reference point (24°30′ N, 13° W) used for the "Sahara occidental" label. The coastal end point is read from the [Natural Earth](https://www.naturalearthdata.com/) coastline (public domain). The line is indicative: replace the coordinates in that file with your institution's reference geometry if you need an official boundary.
 
 ### Optional: additional tile provider
 

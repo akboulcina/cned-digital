@@ -1824,3 +1824,135 @@ body {
     transform: translate3d(0, 0, 0) !important;
   }
 }
+
+/* Barre d'outils de la carte : fonds de carte + calques, placée au-dessus de la carte. */
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.map-segmented {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid #d5dee4;
+  border-radius: 0.55rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(24 60 91 / 6%);
+}
+
+.map-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border: 0;
+  border-inline-end: 1px solid #e4eaee;
+  background: transparent;
+  color: #566a7a;
+  font: 600 0.76rem/1.2 'Public Sans', 'Segoe UI', sans-serif;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.map-segment:last-child {
+  border-inline-end: 0;
+}
+
+.map-segment .bx {
+  font-size: 1rem;
+}
+
+.map-segment:hover {
+  background: #f1f5f8;
+  color: #183c5b;
+}
+
+.map-segment.is-active {
+  background: #183c5b;
+  color: #fff;
+}
+
+.map-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.map-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid #d5dee4;
+  border-radius: 999px;
+  background: #fff;
+  color: #8a9aa6;
+  font: 500 0.72rem/1.2 'Public Sans', 'Segoe UI', sans-serif;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.map-chip-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 2px solid var(--chip, #315b76);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.map-chip:hover {
+  border-color: #b9c8d2;
+}
+
+.map-chip.is-on {
+  border-color: #c5d3dc;
+  background: #f6f9fb;
+  color: #344b5d;
+}
+
+.map-chip.is-on .map-chip-dot {
+  background: var(--chip, #315b76);
+}
+
+.map-segment:focus-visible,
+.map-chip:focus-visible {
+  outline: 2px solid #183c5b;
+  outline-offset: 2px;
+}
+
+.leaflet-tooltip.map-region-label {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #1f2d3a;
+  font: 700 0.66rem/1 'Public Sans', 'Segoe UI', sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 5px #fff;
+  white-space: nowrap;
+}
+
+.leaflet-tooltip.map-region-label::before {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .map-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .map-segmented {
+    display: flex;
+  }
+
+  .map-segment {
+    flex: 1;
+    justify-content: center;
+  }
+}
