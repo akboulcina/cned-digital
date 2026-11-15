@@ -372,6 +372,8 @@ export function referenceSummary() {
   const weightedPhysical = referenceProjects.reduce((sum, project) => sum + project.physical * project.aeCurrent, 0) / totalAe;
   const weightedFinancial = referenceProjects.reduce((sum, project) => sum + project.financial * project.aeCurrent, 0) / totalAe;
   const alerts = referenceProjects.flatMap((project) => referenceAlerts(project).map((alert) => ({ ...alert, project })));
+  const projectGaps = referenceProjects.map((project) => project.financial - project.physical);
+  const pricedAmendments = pendingAmendments.filter((amendment) => amendment.amount != null);
   return {
     totalAe,
     totalCommitted,
@@ -381,6 +383,17 @@ export function referenceSummary() {
     weightedFinancial,
     stoppedCount: referenceProjects.filter((project) => referenceStatus(project) === 'À l’arrêt').length,
     delayedCount: referenceProjects.filter((project) => referenceStatus(project) === 'En retard').length,
+    watchCount: referenceProjects.filter((project) => referenceStatus(project) === 'À surveiller').length,
+    projectCount: referenceProjects.length,
+    portfolioShare: (totalAe / referenceSource.portfolioAe) * 100,
+    alertCount: alerts.length,
+    criticalCount: alerts.filter((alert) => alert.severity === 'Critique').length,
+    gapMin: Math.min(...projectGaps),
+    gapMax: Math.max(...projectGaps),
+    pendingAmendmentCount: pendingAmendments.length,
+    pricedAmendmentCount: pricedAmendments.length,
+    unpricedAmendmentCount: pendingAmendments.length - pricedAmendments.length,
+    pendingAmendmentTotal: pricedAmendments.reduce((sum, amendment) => sum + amendment.amount, 0),
     alerts
   };
 }

@@ -183,7 +183,8 @@ const translations = {
     'Aucune alerte active dans votre périmètre.': 'لا توجد تنبيهات نشطة ضمن نطاقك.',
     Portefeuille: 'المحفظة',
     'Nouvelle alerte': 'تنبيه جديد',
-    'Espace projet · Djendjen': 'مساحة المشروع · جيجل'
+    'Espace projet · Djendjen': 'مساحة المشروع · جيجل',
+    'Synthèse générale': 'ملخص عام'
   }
 };
 
@@ -370,6 +371,7 @@ function referenceExecutiveDashboard() {
   const summary = referenceSummary();
   const weightedGap = summary.weightedFinancial - summary.weightedPhysical;
   const ordered = [...referenceProjects].sort((a, b) => (b.financial - b.physical) - (a.financial - a.physical));
+  const projectStatusCount = (count, singular, plural) => `${count} ${count === 1 ? singular : plural}`;
   const projectsTable = referenceProjects.map((project) => `<tr>
     <td><button class="btn btn-link p-0 text-start table-project-name" data-reference-project="${project.slug}">${escapeHTML(project.name)}</button><span class="table-project-meta">${escapeHTML(project.id)}</span></td>
     <td>${escapeHTML(project.sector)}</td><td>${escapeHTML(project.wilayas.join(', '))}</td>
@@ -399,12 +401,12 @@ function referenceExecutiveDashboard() {
     const color = gap > 0 ? 'bg-danger' : 'bg-info';
     return `<div class="reference-progress-row"><span>${escapeHTML(project.name)}</span><div class="progress"><div class="progress-bar ${color}" style="width:${width}%"></div></div><strong>${gap > 0 ? '+' : '−'}${referenceNumber(Math.abs(gap), 1)} pts</strong></div>`;
   }).join('');
-  return `${pageHeading('Lecture décisionnelle · portefeuille CNED', 'Arbitrages, risques et exécution des projets · situation de référence au 30 juin 2025', '<button class="btn btn-outline-primary btn-sm" data-nav="map"><i class="bx bx-map me-1"></i>Carte nationale</button>')}
+  return `${pageHeading('Synthèse générale · portefeuille CNED', `Arbitrages, risques et exécution des projets · situation de référence au ${referenceSource.situationDate}`, '<button class="btn btn-outline-primary btn-sm" data-nav="map"><i class="bx bx-map me-1"></i>Carte nationale</button>')}
     ${referenceSourceNote()}
     <section class="reference-decision-banner mb-4">
-      <span class="eyebrow">Lecture décisionnelle</span>
-      <h5>${summary.stoppedCount} projets à l’arrêt · ${summary.delayedCount} en retard parmi les ${referenceProjects.length} projets détaillés</h5>
-      <p>Les paiements (${referenceNumber(summary.weightedFinancial, 1)} %) et l’avancement physique (${referenceNumber(summary.weightedPhysical, 1)} %) pondérés par l’AE sont proches (${weightedGap >= 0 ? '+' : '−'}${referenceNumber(Math.abs(weightedGap), 1)} point), mais cet équilibre masque des écarts par projet. ${referenceNumber(referenceSource.pendingApprovals)} Md DA d’avenants et réévaluations sont en attente d’approbation. Les engagements non payés présentés ci-dessous sont calculés sur l’échantillon détaillé, et non sur les 51 projets du portefeuille complet.</p>
+      <span class="eyebrow">Synthèse générale</span>
+      <h5>${projectStatusCount(summary.stoppedCount, 'projet à l’arrêt', 'projets à l’arrêt')}, ${projectStatusCount(summary.delayedCount, 'projet en retard', 'en retard')} et ${projectStatusCount(summary.watchCount, 'projet à surveiller', 'à surveiller')} sur les ${summary.projectCount} projets suivis</h5>
+      <p>Les ${summary.projectCount} projets suivis représentent ${referenceNumber(summary.totalAe, 1)}&nbsp;Md DA d’AE, soit ${referenceNumber(summary.portfolioShare, 1)}&nbsp;% des ${referenceNumber(referenceSource.portfolioAe, 1)}&nbsp;Md DA du portefeuille de ${referenceSource.portfolioProjectCount} projets. ${referenceNumber(summary.totalPaid, 1)}&nbsp;Md DA ont été payés ; ${referenceNumber(summary.unpaidCommitments, 1)}&nbsp;Md DA d’engagements restent à décaisser. L’avancement physique (${referenceNumber(summary.weightedPhysical, 1)}&nbsp;%) et financier (${referenceNumber(summary.weightedFinancial, 1)}&nbsp;%) sont proches (${weightedGap >= 0 ? '+' : '−'}${referenceNumber(Math.abs(weightedGap), 1)}&nbsp;pt) au niveau global, mais les écarts par projet vont de ${summary.gapMin < 0 ? '−' : '+'}${referenceNumber(Math.abs(summary.gapMin), 0)} à +${referenceNumber(summary.gapMax, 0)} points. ${summary.alertCount} alertes sont ouvertes dont ${summary.criticalCount} critiques ; ${summary.pendingAmendmentCount} avenants et réévaluations (${referenceNumber(summary.pendingAmendmentTotal, 3)}&nbsp;Md DA chiffrés) attendent une approbation.</p>
     </section>
     <div class="row g-3 mb-4">
       ${[
@@ -438,7 +440,7 @@ function referenceExecutiveDashboard() {
 }
 
 function roleDashboard() {
-  if (roleKeyFor(state.user) === 'direction') return referenceExecutiveDashboard();
+  if (['direction', 'pmo'].includes(roleKeyFor(state.user))) return referenceExecutiveDashboard();
   const scoped = allScopedProjects();
   const totalBudget = sum(scoped, (project) => project.budgetRevised);
   const delayed = scoped.filter((project) => ['En retard', 'À l’arrêt'].includes(project.status));
@@ -1102,8 +1104,9 @@ function shell() {
   const notificationCount = Math.min(9, currentInstances().filter((instance) => !state.notificationsRead.includes(instance.id)).length);
   const roleNav = config.nav.map((page) => {
     const [label, iconName] = pageMeta[page];
+    const navLabel = page === 'dashboard' && ['direction', 'pmo'].includes(roleKeyFor(state.user)) ? 'Synthèse générale' : label;
     const active = page === state.page || (state.page === 'project' && page === 'portfolio');
-    return `<li class="menu-item ${active ? 'active' : ''}"><a class="menu-link" data-nav="${page}"><i class="menu-icon tf-icons bx ${iconName}"></i><div>${escapeHTML(t(label))}</div>${page === 'alerts' && currentInstances().length ? `<span class="badge badge-center rounded-pill bg-danger ms-auto">${currentInstances().length}</span>` : ''}</a></li>`;
+    return `<li class="menu-item ${active ? 'active' : ''}"><a class="menu-link" data-nav="${page}"><i class="menu-icon tf-icons bx ${iconName}"></i><div>${escapeHTML(t(navLabel))}</div>${page === 'alerts' && currentInstances().length ? `<span class="badge badge-center rounded-pill bg-danger ms-auto">${currentInstances().length}</span>` : ''}</a></li>`;
   }).join('');
   return `<div class="layout-wrapper layout-content-navbar"><div class="layout-container"><aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme"><div class="app-brand demo shell-brand"><a class="app-brand-link" data-nav="dashboard"><img class="shell-brand-logo" src="assets/img/taqaddum/logo.svg" width="36" height="36" alt="" decoding="async"><span class="app-brand-text demo menu-text fw-bolder ms-2">TAQADDUM</span></a><a href="javascript:void(0)" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none" aria-label="Fermer le menu"><i class="bx bx-chevron-left bx-sm align-middle"></i></a></div><div class="menu-inner-shadow"></div><div class="px-4 pb-2"><div class="role-chip w-100 justify-content-start"><i class="bx bx-shield-quarter"></i><span>${escapeHTML(config.name)}</span></div><small class="d-block text-muted mt-2 px-1">${escapeHTML(config.workspace)}</small></div><ul class="menu-inner py-1"><li class="menu-header small text-uppercase"><span class="menu-header-text">Espace de travail</span></li>${roleNav}<li class="menu-header small text-uppercase"><span class="menu-header-text">Session de démonstration</span></li><li class="menu-item"><a class="menu-link" data-action="logout"><i class="menu-icon tf-icons bx bx-log-out"></i><div>${escapeHTML(t('Déconnexion'))}</div></a></li></ul></aside><div class="layout-page"><nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar"><div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none"><a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)" aria-label="Ouvrir le menu"><i class="bx bx-menu bx-sm"></i></a></div><div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse"><form class="navbar-search d-flex align-items-center" data-form="global-search"><i class="bx bx-search fs-4 lh-0 text-muted"></i><input type="search" class="form-control border-0 shadow-none ms-2" name="query" placeholder="${escapeHTML(t('Rechercher un projet, KPI…'))}" aria-label="Rechercher" value="${escapeHTML(state.globalSearch)}"></form><ul class="navbar-nav flex-row align-items-center ms-auto"><li class="nav-item me-2"><span class="role-chip d-none d-lg-inline-flex">${escapeHTML(config.workspace)}</span></li><li class="nav-item me-2"><button class="btn btn-sm btn-text-secondary" data-action="language" aria-label="Changer de langue">${state.lang === 'fr' ? 'عربي' : 'FR'}</button></li><li class="nav-item me-2"><button class="btn btn-sm btn-icon btn-text-secondary position-relative" data-nav="notifications" aria-label="Notifications"><i class="bx bx-bell bx-sm"></i>${notificationCount ? `<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">${notificationCount}</span>` : ''}</button></li><li class="nav-item navbar-dropdown dropdown-user dropdown"><a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0)" data-bs-toggle="dropdown"><div class="avatar avatar-online"><span class="avatar-initials">${escapeHTML(state.user.initials)}</span></div></a><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="javascript:void(0)"><span class="d-flex align-items-center"><span class="avatar-initials me-3">${escapeHTML(state.user.initials)}</span><span><strong class="d-block">${escapeHTML(state.user.name)}</strong><small class="text-muted">${escapeHTML(state.user.title)}</small></span></span></a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="javascript:void(0)"><i class="bx bx-building me-2"></i>${escapeHTML(state.user.organization)}</a></li><li><a class="dropdown-item" data-action="logout"><i class="bx bx-log-out me-2"></i>${escapeHTML(t('Déconnexion'))}</a></li></ul></li></ul></div></nav><div class="content-wrapper"><div class="container-xxl flex-grow-1 container-p-y" id="page-content"><div class="app-content-area"></div></div><footer class="content-footer footer bg-footer-theme"><div class="container-xxl d-flex flex-wrap justify-content-between py-2 flex-md-row flex-column"><div class="mb-2 mb-md-0 text-muted small">TAQADDUM · Prototype de démonstration frontend · Référentiel TAQADDUM v1</div><div class="text-muted small">Données fictives · aucune connexion à un système institutionnel</div></div></footer><div class="content-backdrop fade"></div></div></div></div><div class="layout-overlay layout-menu-toggle"></div></div><div class="modal fade" id="detail-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content"></div></div></div>`;
 }
