@@ -366,7 +366,7 @@ const referenceStatusBadge = (project) => {
   const color = status === 'À l’arrêt' ? 'red' : status === 'En retard' ? 'orange' : 'green';
   return statusPill(color, status);
 };
-const referenceSourceNote = () => `<div class="reference-source-note"><i class="bx bx-info-circle"></i><span><strong>${escapeHTML(referenceSource.status)}</strong> · Situation au ${escapeHTML(referenceSource.situationDate)} · Source : ${escapeHTML(referenceSource.label)}. Les données détaillées portent sur 11 projets ; le portefeuille complet en compte ${referenceSource.portfolioProjectCount}.</span></div>`;
+const referenceSourceNote = () => `<div class="reference-source-note"><i class="bx bx-info-circle"></i><span><strong>${escapeHTML(referenceSource.status)}</strong> · Situation au ${escapeHTML(referenceSource.situationDate)} · Source : ${escapeHTML(referenceSource.label)}. Les données détaillées portent sur ${referenceProjects.length} projets ; le portefeuille complet en compte ${referenceSource.portfolioProjectCount}.</span></div>`;
 
 function kpiTile({ label, value, unit = '', note, tone = 'blue', icon = 'bx-info-circle', ratio = null }) {
   const ratioBar = Number.isFinite(ratio)
@@ -405,9 +405,15 @@ function referenceExecutiveDashboard() {
   </div>`).join('');
   const progressBars = ordered.map((project) => {
     const gap = project.financial - project.physical;
-    const width = Math.min(100, Math.abs(gap) * 2);
-    const color = gap > 0 ? 'bg-danger' : 'bg-info';
-    return `<div class="reference-progress-row"><span>${escapeHTML(project.name)}</span><div class="progress"><div class="progress-bar ${color}" style="width:${width}%"></div></div><strong>${gap > 0 ? '+' : '−'}${referenceNumber(Math.abs(gap), 1)} pts</strong></div>`;
+    const width = Math.min(100, Math.abs(gap) * 1.2);
+    return `<div class="reference-gap-row reference-row-link" data-reference-project="${escapeHTML(project.slug)}" tabindex="0" role="link" aria-label="Ouvrir la fiche de ${escapeHTML(project.name)}"><span>${escapeHTML(project.name)}</span><div class="reference-gap-track"><span class="${gap > 0 ? 'ahead' : 'behind'}" style="width:${width}%"></span></div><strong class="${gap > 0 ? 'ahead' : 'behind'}">${gap > 0 ? '+' : '−'}${referenceNumber(Math.abs(gap), 0)} pts</strong></div>`;
+  }).join('');
+  const weightedBars = [
+    { label: 'Avancement physique', value: summary.weightedPhysical, tone: 'physical' },
+    { label: 'Avancement financier', value: summary.weightedFinancial, tone: 'financial' }
+  ].map(({ label, value, tone }) => {
+    const width = Math.max(0, Math.min(100, value));
+    return `<div class="reference-weighted-bar"><div class="reference-weighted-label"><span>${escapeHTML(label)}</span><strong>${referencePercent(value)}</strong></div><div class="reference-weighted-track" role="progressbar" aria-label="${escapeHTML(label)}" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100" aria-valuetext="${escapeHTML(referencePercent(value))}" title="${value} %"><span class="reference-weighted-fill ${tone}" style="width:${width}%"></span><i aria-hidden="true"></i></div></div>`;
   }).join('');
   return `${pageHeading('Synthèse générale · portefeuille CNED', `Arbitrages, risques et exécution des projets · situation de référence au ${referenceSource.situationDate}`, '<button class="btn btn-outline-primary btn-sm" data-nav="map"><i class="bx bx-map me-1"></i>Carte nationale</button>')}
     ${referenceSourceNote()}
@@ -427,16 +433,15 @@ function referenceExecutiveDashboard() {
     </div>
     <div class="row g-4 mb-4">
       <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header">Avancement physique et financier · pondéré par l’AE</div><div class="card-body">
-        ${horizontalBars([
-          { label: 'Avancement physique', value: summary.weightedPhysical, display: `${referenceNumber(summary.weightedPhysical, 1)} %` },
-          { label: 'Avancement financier', value: summary.weightedFinancial, display: `${referenceNumber(summary.weightedFinancial, 1)} %` }
-        ])}
-        <div class="access-note mt-3">Écart global : ${weightedGap >= 0 ? '+' : '−'}${referenceNumber(Math.abs(weightedGap), 1)} point. Vert : paiements en avance sur l’avancement physique ; bleu : paiements en retard.</div>
-        <h6 class="mt-4">Écart par projet · financier moins physique</h6>${progressBars}
+        ${weightedBars}
+        <div class="reference-global-gap mt-3">${kpiTile({ label: 'Écart global', value: `${weightedGap >= 0 ? '+' : '−'}${referenceNumber(Math.abs(weightedGap), 1)}`, unit: 'pts', note: Math.abs(weightedGap) < 3 ? 'Quasi nul, mais masque de fortes disparités' : weightedGap > 0 ? 'Paiements au-delà des travaux' : 'Paiements en deçà des travaux', tone: Math.abs(weightedGap) < 3 ? 'amber' : 'red', icon: 'bx-transfer-alt' })}</div>
+        <h6 class="reference-gap-heading mt-4">Écart par projet</h6>${progressBars}
+        <div class="reference-gap-legend"><span><i class="ahead"></i>Paiements en avance</span><span><i class="behind"></i>Paiements en retard</span></div>
+        <p class="reference-gap-formula">Écart = paiements sur travaux − avancement physique.</p>
       </div></div></div>
-      <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header d-flex justify-content-between align-items-center"><span>Distribution territoriale · 69 wilayas</span><button class="btn btn-sm btn-link" data-nav="map">Ouvrir la carte</button></div><div class="card-body"><div class="leaflet-mini-map" data-leaflet-map="executive" data-map-mode="reference"></div><p class="small text-muted mt-2 mb-0">Points géographiques indicatifs ; aucune limite administrative n’est dessinée.</p></div></div></div>
+      <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header d-flex justify-content-between align-items-center"><span>Distribution territoriale · ${wilayas.length} wilayas</span><button class="btn btn-sm btn-link" data-nav="map">Ouvrir la carte</button></div><div class="card-body"><div class="leaflet-mini-map" data-leaflet-map="executive" data-map-mode="reference"></div><p class="small text-muted mt-2 mb-0">Points géographiques indicatifs ; aucune limite administrative n’est dessinée.</p></div></div></div>
     </div>
-    <div class="card mb-4"><div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><span>Portefeuille détaillé · ${referenceProjects.length} projets</span><span class="small text-muted">Tous les montants détaillés en Md DA · données au 30/06/2025</span></div><div class="table-responsive"><table class="table table-enterprise reference-wide-table"><thead><tr>
+    <div class="card mb-4"><div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><span>Portefeuille détaillé · ${referenceProjects.length} projets</span><span class="small text-muted">Tous les montants détaillés en Md DA · données au ${escapeHTML(referenceSource.situationDate)}</span></div><div class="table-responsive"><table class="table table-enterprise reference-wide-table"><thead><tr>
       <th>Projet / référence</th><th>Secteur</th><th>Wilaya(s)</th><th>AE initiale</th><th>AE actuelle</th><th>Engagé</th><th>Payé</th><th>Physique</th><th>Financier</th><th>Délai consommé</th><th>État</th><th>Début</th><th>Durée initiale</th><th>Durée en vigueur</th><th>Fin contractuelle</th><th>Marché travaux</th><th>Avenant en attente</th><th>Contractant</th><th>BET</th><th>Contrôle</th><th>Constat CNED</th><th>Recommandation</th>
     </tr></thead><tbody>${projectsTable}</tbody></table></div></div>
     <div class="card mb-4"><div class="card-header">Registre des alertes stratégiques</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Priorité</th><th>Projet</th><th>Signal</th><th>Constat</th><th>Action recommandée</th></tr></thead><tbody>${alertRows}</tbody></table></div></div>
@@ -1882,6 +1887,14 @@ app.addEventListener('click', (event) => {
     updateMenuToggleState();
     window.setTimeout(updateMenuToggleState, 20);
   }
+});
+
+app.addEventListener('keydown', (event) => {
+  if (!['Enter', ' '].includes(event.key)) return;
+  const row = event.target.closest('.reference-row-link');
+  if (!row) return;
+  event.preventDefault();
+  openReferenceProject(row.dataset.referenceProject);
 });
 
 app.addEventListener('submit', async (event) => {
