@@ -2394,3 +2394,30 @@ body {
 }
 
 @media (max-width: 575.98px) {
+  .reference-portfolio-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+
+.reference-followup-layout > [class*='col-'] {
+  min-width: 0;
+}
+
+.reference-actions-table {
+  min-width: 820px;
+}
+
+.reference-actions-table td:nth-child(2) {
+  min-width: 260px;
+  white-space: normal;
+}
+
+.reference-actions-table td:nth-child(3) {
+  min-width: 170px;
+  white-space: normal;
+}
+
+.reference-journal-table {
+  min-width: 900px;
+}

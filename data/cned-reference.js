@@ -319,6 +319,18 @@ export const pendingAmendments = [
   { project: 'Ligne Saïda – Tiaret', object: 'Avenant n°14', amount: null, status: 'Visé avec réserves non suspensives' }
 ];
 
+export const referenceActions = [
+  { projectSlug: 'djendjen', action: 'Libérer les emprises restantes', recipients: 'Autorités locales, gestionnaires de réseaux' },
+  { projectSlug: 'djendjen', action: 'Arrêter la consistance et le coût de la section PK 34–38', recipients: 'Maître d’ouvrage' },
+  { projectSlug: 'bejaia', action: 'Libérer l’emprise du tronçon de 11 km', recipients: 'Autorités locales' },
+  { projectSlug: 'tizi', action: 'Arrêter la solution de traitement du glissement', recipients: 'Maître d’ouvrage et BET' },
+  { projectSlug: 'tenes', action: 'Relancer le reste à réaliser et achever le déplacement des réseaux', recipients: 'Maître d’ouvrage' },
+  { projectSlug: 'guelma', action: 'Relancer les travaux restants (lot 2 infructueux)', recipients: 'Maître d’ouvrage' },
+  { projectSlug: 'tlelat', action: 'Lancer les travaux d’entrée de Tlemcen avec la SNTF', recipients: 'SNTF, autorités locales' },
+  { projectSlug: 'benimansour', action: 'Libérer totalement l’emprise', recipients: 'Autorités locales, gestionnaires de réseaux' },
+  { projectSlug: 'chu', action: 'Renforcer l’organisation du chantier et lancer les appels d’offres de sous-traitance', recipients: 'Contractant' }
+];
+
 export const djendjenTechnicalLots = [
   { name: 'Études d’exécution', progress: 95 },
   { name: 'Lot route', progress: 58 },

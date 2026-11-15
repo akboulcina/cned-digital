@@ -3,6 +3,7 @@ import {
   djendjenOperationalFields,
   djendjenTechnicalLots,
   pendingAmendments,
+  referenceActions,
   referenceAlerts,
   referenceProjects,
   referenceSource,
@@ -25,15 +26,50 @@ try {
 } catch (error) {
   console.warn('Configuration des tuiles cartographiques indisponible; seules les données géographiques locales seront affichées.', error);
 }
-const saved = (key, fallback, storage = localStorage) => {
-  const raw = storage.getItem(key);
-  if (!raw) return fallback;
+const saved = (key, fallback, storageType = 'local') => {
+  let storage;
   try {
-    return JSON.parse(raw);
+    storage = storageType === 'session' ? sessionStorage : localStorage;
+    const raw = storage.getItem(key);
+    if (!raw) return fallback;
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      console.warn(`Invalid local prototype state in ${key}; resetting this value.`, error);
+      try {
+        storage.removeItem(key);
+      } catch (storageError) {
+        console.warn(`Could not reset local prototype state in ${key}.`, storageError);
+      }
+      return fallback;
+    }
   } catch (error) {
-    console.warn(`Invalid local prototype state in ${key}; resetting this value.`, error);
-    storage.removeItem(key);
+    console.warn(`Could not read local prototype state in ${key}; using the default.`, error);
     return fallback;
+  }
+};
+const loadReferenceMessageJournal = () => {
+  try {
+    const raw = localStorage.getItem('cned-reference-message-journal');
+    const entries = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(entries)) throw new TypeError('Expected an array of journal entries.');
+    const validEntries = entries.filter((entry) => entry && typeof entry === 'object' && typeof entry.projectSlug === 'string');
+    if (validEntries.length !== entries.length) {
+      console.warn('Invalid entries were omitted from the reference message journal.');
+    }
+    return validEntries;
+  } catch (error) {
+    console.warn('Reference message journal is unavailable; using an in-memory journal.', error);
+    return [];
+  }
+};
+const persistReferenceMessageJournal = (entries) => {
+  try {
+    localStorage.setItem('cned-reference-message-journal', JSON.stringify(entries));
+    return true;
+  } catch (error) {
+    console.warn('Reference message journal could not be persisted.', error);
+    return false;
   }
 };
 
@@ -49,7 +85,7 @@ try {
 if (!reference) throw new Error('Référentiel non chargé; le prototype ne peut pas démarrer.');
 
 const state = {
-  user: saved('cned-demo-user', null) || saved('cned-demo-session', null, sessionStorage),
+  user: saved('cned-demo-user', null) || saved('cned-demo-session', null, 'session'),
   lang: saved('cned-language', 'fr'),
   page: 'dashboard',
   projectId: null,
@@ -63,6 +99,7 @@ const state = {
   projectSort: saved('cned-project-sort', 'name'),
   referencePortfolioQuery: '',
   referencePortfolioStatus: '',
+  referenceMessageJournal: loadReferenceMessageJournal(),
   reportPeriod: saved('cned-report-period', '12 derniers mois'),
   selectedMapProject: null,
   mapFocusSlug: null,
@@ -88,7 +125,7 @@ const roles = {
   direction: {
     name: 'Direction CNED',
     workspace: 'I7 · Pilotage CNED',
-    nav: ['dashboard', 'portfolio', 'kpis', 'alerts', 'map', 'reports', 'notifications'],
+    nav: ['dashboard', 'portfolio', 'kpis', 'alerts', 'map', 'messages', 'reports', 'notifications'],
     intro: 'Vision nationale, arbitrages et décisions stratégiques.',
     projectAction: 'Consultation seule'
   },
@@ -165,6 +202,7 @@ const translations = {
     'Carte nationale': 'الخريطة الوطنية',
     Documents: 'الوثائق',
     Communication: 'التواصل',
+    'Suivi et communication': 'المتابعة والتواصل',
     'Rapports & analyses': 'التقارير والتحليلات',
     Notifications: 'الإشعارات',
     'Déconnexion': 'تسجيل الخروج',
@@ -985,7 +1023,91 @@ function documentsPage() {
   return `${pageHeading('Documents', 'Dossiers projets, rapports, études et documents de démonstration', `<button class="btn btn-primary btn-sm" data-action="show-upload"><i class="bx bx-upload me-1"></i>Ajouter un document</button>`)}${demoBanner()}<div class="card mb-4"><div class="card-body"><form class="toolbar" data-form="document-filter"><input class="form-control form-control-sm" name="document-query" value="${escapeHTML(query)}" placeholder="Rechercher un fichier, projet…" aria-label="Rechercher un document"><select class="form-select form-select-sm" name="document-category"><option value="">Toutes catégories</option>${categories.map((item) => `<option ${category === item ? 'selected' : ''}>${escapeHTML(item)}</option>`).join('')}</select><button class="btn btn-sm btn-outline-primary">Filtrer</button><span class="ms-auto small text-muted">${filtered.length} document(s) · accès par périmètre de projet</span></form></div></div><div class="row g-4">${filtered.map(documentCard).join('') || '<div class="col-12"><div class="empty-state"><i class="bx bx-folder-open"></i>Aucun document visible pour ces critères.</div></div>'}</div><div class="mt-4"><div class="access-note">Les documents sont simulés localement. Un ajout conserve les métadonnées du fichier dans le navigateur, sans transfert ni stockage serveur.</div></div>`;
 }
 
+const referenceMessageRecipients = [
+  'Maître d’ouvrage',
+  'Bureau d’études',
+  'Organisme de contrôle',
+  'Bureau de contrôle et suivi',
+  'Contractant',
+  'Autorités locales',
+  'Gestionnaires de réseaux',
+  'Ministère de tutelle'
+];
+
+function referenceActionRecipient(action) {
+  const recipients = action.recipients.toLocaleLowerCase('fr');
+  if (recipients.includes('contractant')) return 'Contractant';
+  if (recipients.includes('autorités locales')) return 'Autorités locales';
+  if (recipients.includes('gestionnaires de réseaux')) return 'Gestionnaires de réseaux';
+  if (recipients.includes('bet')) return 'Bureau d’études';
+  return 'Maître d’ouvrage';
+}
+
+function referenceFollowupPage() {
+  const actions = referenceActions.map((action, index) => {
+    const project = referenceProjectBySlug(action.projectSlug);
+    return `<tr>
+      <td><strong>${escapeHTML(project?.name || 'Projet indisponible')}</strong></td>
+      <td>${escapeHTML(action.action)}</td>
+      <td>${escapeHTML(action.recipients)}</td>
+      <td><span class="badge bg-label-secondary">À fixer</span></td>
+      <td><button class="btn btn-sm btn-outline-primary" type="button" data-prepare-reference-action="${index}">Préparer</button></td>
+    </tr>`;
+  }).join('');
+  const projects = referenceProjects.map((project) => `<option value="${escapeHTML(project.slug)}">${escapeHTML(project.name)}</option>`).join('');
+  const recipients = referenceMessageRecipients.map((recipient) => `<option value="${escapeHTML(recipient)}">${escapeHTML(recipient)}</option>`).join('');
+  const journal = state.referenceMessageJournal.map((entry) => {
+    const project = referenceProjectBySlug(entry.projectSlug);
+    return `<tr>
+      <td>${escapeHTML(entry.date || '')}</td>
+      <td>${escapeHTML(project?.name || 'Projet indisponible')}</td>
+      <td>${escapeHTML(entry.recipient || '')}</td>
+      <td>${escapeHTML(entry.type || '')}</td>
+      <td title="${escapeHTML(entry.subject || '')}">${escapeHTML(entry.subject || '')}</td>
+      <td><span class="badge bg-label-info">${escapeHTML(entry.status || 'Enregistré')}</span></td>
+    </tr>`;
+  }).join('');
+  return `${pageHeading('Suivi et communication', 'Parties prenantes, actions et échanges')}
+    <div class="row g-4 reference-followup-layout">
+      <div class="col-12 col-xl-7">
+        <div class="card h-100">
+          <div class="card-header">Actions demandées aux parties prenantes</div>
+          <div class="table-responsive"><table class="table table-enterprise reference-actions-table">
+            <thead><tr><th scope="col">Projet</th><th scope="col">Action</th><th scope="col">Destinataire</th><th scope="col">Échéance</th><th scope="col">Suivi</th></tr></thead>
+            <tbody>${actions}</tbody>
+          </table></div>
+          <div class="reference-portfolio-footnote">Actions tirées des recommandations de la source de référence.</div>
+        </div>
+      </div>
+      <div class="col-12 col-xl-5">
+        <div class="card h-100">
+          <div class="card-header">Nouveau message</div>
+          <div class="card-body">
+            <form data-form="reference-message">
+              <div class="mb-3"><label class="form-label" for="reference-message-project">Projet</label><select class="form-select" id="reference-message-project" name="projectSlug" required>${projects}</select></div>
+              <div class="mb-3"><label class="form-label" for="reference-message-recipient">Destinataire</label><select class="form-select" id="reference-message-recipient" name="recipient" required>${recipients}</select></div>
+              <div class="mb-3"><label class="form-label" for="reference-message-type">Type</label><select class="form-select" id="reference-message-type" name="type"><option>Demande de situation</option><option>Relance</option><option>Notification de décision</option><option>Convocation de réunion</option></select></div>
+              <div class="mb-3"><label class="form-label" for="reference-message-subject">Objet</label><input class="form-control" id="reference-message-subject" name="subject" aria-required="true"></div>
+              <div class="mb-3"><label class="form-label" for="reference-message-body">Message</label><textarea class="form-control" id="reference-message-body" name="message" rows="3"></textarea></div>
+              <button class="btn btn-primary" type="submit">Enregistrer et envoyer (démonstration)</button>
+            </form>
+            <p class="small text-muted mt-3 mb-0">Aucun message n’est réellement envoyé dans ce prototype.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt-4">
+      <div class="card-header">Journal des échanges</div>
+      <div class="table-responsive"><table class="table table-enterprise reference-journal-table">
+        <thead><tr><th scope="col">Date</th><th scope="col">Projet</th><th scope="col">Destinataire</th><th scope="col">Type</th><th scope="col">Objet</th><th scope="col">État</th></tr></thead>
+        <tbody>${journal || '<tr><td colspan="6"><div class="empty-state">Aucun échange enregistré pour le moment.</div></td></tr>'}</tbody>
+      </table></div>
+      <div class="reference-portfolio-footnote">Chaque échange est rattaché à un projet et à une partie prenante, pour garder une trace opposable.</div>
+    </div>`;
+}
+
 function messagesPage() {
+  if (['direction', 'pmo'].includes(roleKeyFor(state.user))) return referenceFollowupPage();
   const visible = conversations.filter((conversation) => scopedProjectIds().has(conversation.projectId));
   if (!visible.some((conversation) => conversation.id === state.selectedConversation)) state.selectedConversation = visible[0]?.id;
   const selected = visible.find((conversation) => conversation.id === state.selectedConversation);
@@ -1171,7 +1293,12 @@ function shell() {
   const notificationCount = Math.min(9, currentInstances().filter((instance) => !state.notificationsRead.includes(instance.id)).length);
   const roleNav = config.nav.map((page) => {
     const [label, iconName] = pageMeta[page];
-    const navLabel = page === 'dashboard' && ['direction', 'pmo'].includes(roleKeyFor(state.user)) ? 'Synthèse générale' : label;
+    const executiveRole = ['direction', 'pmo'].includes(roleKeyFor(state.user));
+    const navLabel = page === 'dashboard' && executiveRole
+      ? 'Synthèse générale'
+      : page === 'messages' && executiveRole
+        ? 'Suivi et communication'
+        : label;
     const active = page === state.page || (state.page === 'project' && page === 'portfolio');
     return `<li class="menu-item ${active ? 'active' : ''}"><a class="menu-link" data-nav="${page}"><i class="menu-icon tf-icons bx ${iconName}"></i><div>${escapeHTML(t(navLabel))}</div>${page === 'alerts' && currentInstances().length ? `<span class="badge badge-center rounded-pill bg-danger ms-auto">${currentInstances().length}</span>` : ''}</a></li>`;
   }).join('');
@@ -1752,7 +1879,7 @@ function openReferenceProject(slug) {
 }
 
 app.addEventListener('click', (event) => {
-  const target = event.target.closest('[data-nav], [data-project-id], [data-reference-project], [data-reference-map-project], [data-reference-project-tab], [data-reference-portfolio-status], [data-kpi-id], [data-alert-id], [data-rule-id], [data-project-tab], [data-alert-tab], [data-action], [data-demo-user], [data-page], [data-export], [data-map-project], [data-map-toggle], [data-map-fit], [data-map-reset], [data-conversation-id], [data-doc-preview], [data-notification-id]');
+  const target = event.target.closest('[data-nav], [data-project-id], [data-reference-project], [data-reference-map-project], [data-reference-project-tab], [data-reference-portfolio-status], [data-prepare-reference-action], [data-kpi-id], [data-alert-id], [data-rule-id], [data-project-tab], [data-alert-tab], [data-action], [data-demo-user], [data-page], [data-export], [data-map-project], [data-map-toggle], [data-map-fit], [data-map-reset], [data-conversation-id], [data-doc-preview], [data-notification-id]');
   if (!target) return;
   if (target.dataset.demoUser) {
     const account = demoAccounts.find((item) => item.username === target.dataset.demoUser);
@@ -1827,6 +1954,22 @@ app.addEventListener('click', (event) => {
   if (target.hasAttribute('data-reference-portfolio-status')) {
     state.referencePortfolioStatus = target.dataset.referencePortfolioStatus;
     renderCurrentPage();
+    return;
+  }
+  if (target.hasAttribute('data-prepare-reference-action')) {
+    const action = referenceActions[Number(target.dataset.prepareReferenceAction)];
+    const form = document.querySelector('[data-form="reference-message"]');
+    if (!action || !form) {
+      appToast('Impossible de préparer cette action de référence.');
+      return;
+    }
+    form.elements.projectSlug.value = action.projectSlug;
+    form.elements.recipient.value = referenceActionRecipient(action);
+    form.elements.subject.value = action.action;
+    form.elements.message.value = `Pour mise en œuvre : ${action.action}. Merci de nous communiquer l’état d’avancement et la date prévue de levée.`;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    form.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' });
+    form.elements.subject.focus();
     return;
   }
   if (target.dataset.referenceProjectTab) {
@@ -1976,15 +2119,22 @@ app.addEventListener('submit', async (event) => {
     form.querySelector('[data-login-spinner]').classList.remove('d-none');
     await new Promise((resolve) => window.setTimeout(resolve, 320));
     state.user = account;
-    if (data.get('remember')) {
-      localStorage.setItem('cned-demo-user', JSON.stringify(account));
-      sessionStorage.removeItem('cned-demo-session');
-    } else {
-      sessionStorage.setItem('cned-demo-session', JSON.stringify(account));
-      localStorage.removeItem('cned-demo-user');
+    let storageUnavailable = false;
+    try {
+      if (data.get('remember')) {
+        localStorage.setItem('cned-demo-user', JSON.stringify(account));
+        sessionStorage.removeItem('cned-demo-session');
+      } else {
+        sessionStorage.setItem('cned-demo-session', JSON.stringify(account));
+        localStorage.removeItem('cned-demo-user');
+      }
+    } catch (error) {
+      console.warn('Demo session could not be persisted; keeping it in memory.', error);
+      storageUnavailable = true;
     }
     state.page = 'dashboard';
     render();
+    if (storageUnavailable) appToast('Session ouverte en mémoire uniquement ; le stockage du navigateur est indisponible.');
     return;
   }
   if (form.dataset.form === 'global-search') {
@@ -2009,6 +2159,45 @@ app.addEventListener('submit', async (event) => {
   if (form.dataset.form === 'reference-portfolio-search') {
     state.referencePortfolioQuery = String(data.get('query') || '').trim();
     renderCurrentPage();
+    return;
+  }
+  if (form.dataset.form === 'reference-message') {
+    if (!['direction', 'pmo'].includes(roleKeyFor(state.user))) {
+      appToast('La saisie de suivi est réservée à la direction et au PMO.');
+      return;
+    }
+    const subjectField = form.elements.subject;
+    const subject = String(data.get('subject') || '').trim();
+    if (!subject) {
+      subjectField.classList.add('is-invalid');
+      subjectField.setAttribute('aria-invalid', 'true');
+      subjectField.focus();
+      appToast('Renseignez l’objet du message avant de l’enregistrer.');
+      return;
+    }
+    subjectField.classList.remove('is-invalid');
+    subjectField.removeAttribute('aria-invalid');
+    const projectSlug = String(data.get('projectSlug') || '');
+    const project = referenceProjectBySlug(projectSlug);
+    if (!project) {
+      appToast('Sélectionnez un projet de référence valide.');
+      return;
+    }
+    state.referenceMessageJournal.unshift({
+      date: new Date().toLocaleDateString('fr-FR'),
+      projectSlug,
+      recipient: String(data.get('recipient') || ''),
+      type: String(data.get('type') || ''),
+      subject,
+      message: String(data.get('message') || '').trim(),
+      status: 'Enregistré'
+    });
+    const persisted = persistReferenceMessageJournal(state.referenceMessageJournal);
+    form.reset();
+    renderCurrentPage();
+    appToast(persisted
+      ? 'Échange enregistré dans le journal local.'
+      : 'Échange ajouté au journal de cette session ; le stockage du navigateur est indisponible.');
     return;
   }
   if (form.dataset.form === 'map-filters') {
