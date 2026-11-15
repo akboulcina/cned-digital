@@ -61,6 +61,8 @@ const state = {
   mapFilters: saved('cned-map-filters', {}),
   projectStatus: saved('cned-project-status', ''),
   projectSort: saved('cned-project-sort', 'name'),
+  referencePortfolioQuery: '',
+  referencePortfolioStatus: '',
   reportPeriod: saved('cned-report-period', '12 derniers mois'),
   selectedMapProject: null,
   mapFocusSlug: null,
@@ -739,7 +741,56 @@ function taskList(scoped = allScopedProjects(), technical = false) {
   return tasks.map((task) => `<div class="d-flex align-items-center justify-content-between gap-2 border-bottom py-2"><span class="small text-muted">${escapeHTML(task.label)}</span><span class="text-nowrap small">${escapeHTML(task.due)} <span class="badge bg-label-warning">${escapeHTML(task.status)}</span></span></div>`).join('');
 }
 
+function referencePortfolioPage() {
+  const query = state.referencePortfolioQuery.trim().toLocaleLowerCase('fr');
+  const filtered = referenceProjects.filter((project) => {
+    const matchesQuery = !query || [project.id, project.name, project.sector, ...project.wilayas].join(' ').toLocaleLowerCase('fr').includes(query);
+    const matchesStatus = !state.referencePortfolioStatus || referenceStatus(project) === state.referencePortfolioStatus;
+    return matchesQuery && matchesStatus;
+  });
+  const statuses = [
+    ['', 'Tous'],
+    ['À l’arrêt', 'À l’arrêt'],
+    ['En retard', 'En retard'],
+    ['À surveiller', 'À surveiller']
+  ];
+  const rows = filtered.map((project) => {
+    const gap = project.financial - project.physical;
+    return `<tr class="reference-row-link" data-reference-project="${escapeHTML(project.slug)}" tabindex="0" role="link" aria-label="Ouvrir la fiche de ${escapeHTML(project.name)}">
+      <td>${escapeHTML(project.id)}</td>
+      <td><strong>${escapeHTML(project.name)}</strong></td>
+      <td>${escapeHTML(project.sector)}</td>
+      <td>${escapeHTML(project.wilayas.join(', '))}</td>
+      <td class="text-end reference-number-cell">${referenceNumber(project.aeCurrent, 1)}</td>
+      <td class="text-end reference-number-cell">${referencePercent(project.physical)}</td>
+      <td class="text-end reference-number-cell">${referencePercent(project.financial)}</td>
+      <td class="text-end reference-number-cell"><strong class="reference-gap-value ${gap > 0 ? 'ahead' : 'behind'}">${gap > 0 ? '+' : '−'}${referenceNumber(Math.abs(gap), 0)}</strong></td>
+      <td>${referenceStatusBadge(project)}</td>
+    </tr>`;
+  }).join('');
+  return `${pageHeading('Portefeuille de projets', 'Fiche technique de chaque projet.', '<button class="btn btn-outline-secondary btn-sm" data-export="projects"><i class="bx bx-download me-1"></i>Exporter CSV</button>')}
+    ${referenceSourceNote()}
+    <div class="card">
+      <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div><strong>Projets suivis</strong><span class="text-muted small ms-2">${filtered.length} / ${referenceProjects.length}</span></div>
+        <form class="reference-portfolio-search" data-form="reference-portfolio-search">
+          <label class="visually-hidden" for="reference-portfolio-query">Rechercher un projet</label>
+          <input class="form-control form-control-sm" id="reference-portfolio-query" name="query" value="${escapeHTML(state.referencePortfolioQuery)}" placeholder="Rechercher un projet…" aria-label="Rechercher un projet">
+          <button class="btn btn-sm btn-outline-primary" type="submit">Rechercher</button>
+        </form>
+        <div class="reference-status-chips" role="group" aria-label="Filtrer par état">
+          ${statuses.map(([value, label]) => `<button class="btn btn-sm ${state.referencePortfolioStatus === value ? 'btn-primary' : 'btn-outline-secondary'}" type="button" data-reference-portfolio-status="${escapeHTML(value)}" aria-pressed="${state.referencePortfolioStatus === value}">${escapeHTML(label)}</button>`).join('')}
+        </div>
+      </div>
+      <div class="table-responsive"><table class="table table-enterprise reference-portfolio-table"><thead><tr>
+        <th scope="col">Référence</th><th scope="col">Projet</th><th scope="col">Secteur</th><th scope="col">Wilaya</th><th scope="col" class="text-end">AE (Md DA)</th><th scope="col" class="text-end">Physique</th><th scope="col" class="text-end">Financier</th><th scope="col" class="text-end">Écart</th><th scope="col">État</th>
+      </tr></thead><tbody>${rows || `<tr><td colspan="9"><div class="empty-state">Aucun projet ne correspond aux filtres.</div></td></tr>`}</tbody></table></div>
+      <div class="reference-portfolio-footnote">Codification des références proposée (secteur et numéro d'ordre). Cliquez sur un projet pour ouvrir sa fiche.</div>
+    </div>`;
+}
+
 function portfolioPage() {
+  if (['direction', 'pmo'].includes(roleKeyFor(state.user))) return referencePortfolioPage();
   const items = allScopedProjects();
   const query = state.globalSearch.trim().toLowerCase();
   const filtered = items.filter((project) => (!query || [project.name, project.id, project.wilaya, project.sector].join(' ').toLowerCase().includes(query)) && (!state.projectStatus || project.status === state.projectStatus));
@@ -1701,7 +1752,7 @@ function openReferenceProject(slug) {
 }
 
 app.addEventListener('click', (event) => {
-  const target = event.target.closest('[data-nav], [data-project-id], [data-reference-project], [data-reference-map-project], [data-reference-project-tab], [data-kpi-id], [data-alert-id], [data-rule-id], [data-project-tab], [data-alert-tab], [data-action], [data-demo-user], [data-page], [data-export], [data-map-project], [data-map-toggle], [data-map-fit], [data-map-reset], [data-conversation-id], [data-doc-preview], [data-notification-id]');
+  const target = event.target.closest('[data-nav], [data-project-id], [data-reference-project], [data-reference-map-project], [data-reference-project-tab], [data-reference-portfolio-status], [data-kpi-id], [data-alert-id], [data-rule-id], [data-project-tab], [data-alert-tab], [data-action], [data-demo-user], [data-page], [data-export], [data-map-project], [data-map-toggle], [data-map-fit], [data-map-reset], [data-conversation-id], [data-doc-preview], [data-notification-id]');
   if (!target) return;
   if (target.dataset.demoUser) {
     const account = demoAccounts.find((item) => item.username === target.dataset.demoUser);
@@ -1771,6 +1822,11 @@ app.addEventListener('click', (event) => {
   }
   if (target.dataset.referenceProject) {
     openReferenceProject(target.dataset.referenceProject);
+    return;
+  }
+  if (target.hasAttribute('data-reference-portfolio-status')) {
+    state.referencePortfolioStatus = target.dataset.referencePortfolioStatus;
+    renderCurrentPage();
     return;
   }
   if (target.dataset.referenceProjectTab) {
@@ -1947,6 +2003,11 @@ app.addEventListener('submit', async (event) => {
     localStorage.setItem('cned-project-status', JSON.stringify(state.projectStatus));
     localStorage.setItem('cned-project-sort', JSON.stringify(state.projectSort));
     state.tablePages.portfolio = 1;
+    renderCurrentPage();
+    return;
+  }
+  if (form.dataset.form === 'reference-portfolio-search') {
+    state.referencePortfolioQuery = String(data.get('query') || '').trim();
     renderCurrentPage();
     return;
   }
@@ -2170,16 +2231,33 @@ document.addEventListener('click', (event) => {
 function exportData(type) {
   let rows = [];
   if (type === 'projects') {
-    const financialAccess = canViewFinancialData();
-    const headers = ['Référence', 'Projet', 'Secteur', 'Wilaya', 'Maître d’ouvrage'];
-    if (financialAccess) headers.push('AE initiale (Md DA)', 'AE actuelle (Md DA)', 'Avancement financier (%)');
-    headers.push('Avancement physique (%)', 'Fin contractuelle', 'État');
-    rows = [headers, ...allScopedProjects().map((project) => {
-      const row = [project.id, project.name, project.sector, project.wilaya, project.owner];
-      if (financialAccess) row.push(project.budgetInitial, project.budgetRevised, project.financial);
-      row.push(project.physical, project.end, project.status);
-      return row;
-    })];
+    if (state.page === 'portfolio' && ['direction', 'pmo'].includes(roleKeyFor(state.user))) {
+      rows = [
+        ['Référence', 'Projet', 'Secteur', 'Wilaya', 'AE (Md DA)', 'Physique (%)', 'Financier (%)', 'Écart (pts)', 'État'],
+        ...referenceProjects.map((project) => [
+          project.id,
+          project.name,
+          project.sector,
+          project.wilayas.join(', '),
+          project.aeCurrent,
+          project.physical,
+          project.financial,
+          project.financial - project.physical,
+          referenceStatus(project)
+        ])
+      ];
+    } else {
+      const financialAccess = canViewFinancialData();
+      const headers = ['Référence', 'Projet', 'Secteur', 'Wilaya', 'Maître d’ouvrage'];
+      if (financialAccess) headers.push('AE initiale (Md DA)', 'AE actuelle (Md DA)', 'Avancement financier (%)');
+      headers.push('Avancement physique (%)', 'Fin contractuelle', 'État');
+      rows = [headers, ...allScopedProjects().map((project) => {
+        const row = [project.id, project.name, project.sector, project.wilaya, project.owner];
+        if (financialAccess) row.push(project.budgetInitial, project.budgetRevised, project.financial);
+        row.push(project.physical, project.end, project.status);
+        return row;
+      })];
+    }
   } else if (type === 'kpis') {
     const hasSnapshot = (state.kpiFilters.reportingDate || '2026-11') === '2026-11';
     const selectedProject = scopedProjectIds().has(state.kpiFilters.project) ? projectById(state.kpiFilters.project) : null;
@@ -2194,10 +2272,13 @@ function exportData(type) {
   const url = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `taqaddum-${type}-illustratif.csv`;
+  const isReferencePortfolio = type === 'projects' && state.page === 'portfolio' && ['direction', 'pmo'].includes(roleKeyFor(state.user));
+  anchor.download = isReferencePortfolio ? 'taqaddum-portefeuille-reference.csv' : `taqaddum-${type}-illustratif.csv`;
   anchor.click();
   URL.revokeObjectURL(url);
-  appToast('Export CSV généré à partir des données locales de démonstration.');
+  appToast(isReferencePortfolio
+    ? `Export CSV généré à partir des ${referenceProjects.length} fiches de référence locales.`
+    : 'Export CSV généré à partir des données locales de démonstration.');
 }
 
 function start() {

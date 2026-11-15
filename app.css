@@ -2343,3 +2343,54 @@ body {
     justify-content: center;
   }
 }
+.reference-portfolio-search {
+  display: flex;
+  flex: 1 1 17rem;
+  gap: 0.45rem;
+  max-width: 24rem;
+}
+
+.reference-portfolio-search .form-control {
+  min-width: 0;
+}
+
+.reference-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.reference-portfolio-table {
+  min-width: 1000px;
+}
+
+.reference-portfolio-table th,
+.reference-portfolio-table td {
+  white-space: nowrap;
+}
+
+.reference-portfolio-table td:nth-child(2),
+.reference-portfolio-table td:nth-child(3),
+.reference-portfolio-table td:nth-child(4) {
+  white-space: normal;
+}
+
+.reference-number-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.reference-gap-value.ahead {
+  color: var(--cned-red);
+}
+
+.reference-gap-value.behind {
+  color: var(--cned-blue);
+}
+
+.reference-portfolio-footnote {
+  padding: 0.8rem 1.25rem 1rem;
+  color: var(--cned-muted);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 575.98px) {
