@@ -1616,14 +1616,100 @@ body {
   background: var(--cned-green);
 }
 
-.reference-wide-table {
-  min-width: 1900px;
+.reference-headline-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
 }
 
-.reference-wide-table td {
-  max-width: 260px;
-  white-space: normal;
+.reference-headline-table th:nth-child(1) { width: 23%; }
+.reference-headline-table th:nth-child(2) { width: 12%; }
+.reference-headline-table th:nth-child(3) { width: 12%; }
+.reference-headline-table th:nth-child(4) { width: 8%; }
+.reference-headline-table th:nth-child(5) { width: 9%; }
+.reference-headline-table th:nth-child(6) { width: 12%; }
+.reference-headline-table th:nth-child(7) { width: 24%; }
+
+.reference-dashboard-project {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.28rem;
+}
+
+.reference-dashboard-project > strong {
+  color: var(--cned-navy);
+  line-height: 1.35;
+}
+
+.reference-dashboard-project > span:not(.status-pill) {
+  color: #526674;
+  font-size: 0.67rem;
+}
+
+.reference-dashboard-project .status-pill {
+  font-size: 0.61rem;
+}
+
+.reference-gap-value.ahead {
+  color: var(--cned-red);
+  white-space: nowrap;
+}
+
+.reference-gap-value.behind {
+  color: var(--cned-blue);
+  white-space: nowrap;
+}
+
+.reference-delay {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.reference-delay > span {
+  height: 0.3rem;
+  min-width: 1.5rem;
+  flex: 1 1 auto;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef1;
+}
+
+.reference-delay > span > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cned-blue);
+}
+
+.reference-delay > span > i.late {
+  background: var(--cned-red);
+}
+
+.reference-delay > strong {
+  color: #526674;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reference-observation {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #526674;
+  font-size: 0.7rem;
+  line-height: 1.35;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@media (max-width: 767.98px) {
+  .reference-headline-table {
+    min-width: 760px;
+  }
 }
 
 .reference-action-row {

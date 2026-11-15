@@ -380,18 +380,22 @@ function referenceExecutiveDashboard() {
   const weightedGap = summary.weightedFinancial - summary.weightedPhysical;
   const ordered = [...referenceProjects].sort((a, b) => (b.financial - b.physical) - (a.financial - a.physical));
   const projectStatusCount = (count, singular, plural) => `${count} ${count === 1 ? singular : plural}`;
-  const projectsTable = referenceProjects.map((project) => `<tr>
-    <td><button class="btn btn-link p-0 text-start table-project-name" data-reference-project="${project.slug}">${escapeHTML(project.name)}</button><span class="table-project-meta">${escapeHTML(project.id)}</span></td>
-    <td>${escapeHTML(project.sector)}</td><td>${escapeHTML(project.wilayas.join(', '))}</td>
-    <td class="text-end">${referenceNumber(project.aeInitial)}</td><td class="text-end">${referenceNumber(project.aeCurrent)}</td>
-    <td class="text-end">${referenceNumber(project.committed)}</td><td class="text-end">${referenceNumber(project.paid)}</td>
-    <td class="text-end">${referenceNumber(project.physical, 2)} %</td><td class="text-end">${referenceNumber(project.financial, 2)} %</td>
-    <td class="text-end">${referenceNumber(project.timeConsumed, 2)} %</td><td>${referenceStatusBadge(project)}</td>
-    <td>${escapeHTML(project.startDate)}</td><td>${project.initialDurationMonths} mois</td><td>${referenceNumber(project.currentDurationMonths, 1)} mois</td><td>${escapeHTML(project.contractualEnd)}</td>
-    <td>${referenceNumber(project.worksContract)}</td><td>${referenceNumber(project.pendingAmendment)}</td>
-    <td>${escapeHTML(project.contractor)}</td><td>${escapeHTML(project.bet)}</td><td>${escapeHTML(project.control)}</td>
-    <td>${escapeHTML(project.observation)}</td><td>${escapeHTML(project.recommendation)}</td>
-  </tr>`).join('');
+  const projectsTable = referenceProjects.map((project) => {
+    const projectAlerts = referenceAlerts(project);
+    const critical = projectAlerts.some((alert) => alert.severity === 'Critique');
+    const gap = project.financial - project.physical;
+    const delayWidth = Math.max(0, Math.min(100, project.timeConsumed));
+    const alertTone = critical ? 'red' : projectAlerts.length ? 'orange' : 'green';
+    const gapTone = gap > 0 ? 'ahead' : 'behind';
+    return `<tr class="reference-row-link" data-reference-project="${escapeHTML(project.slug)}" tabindex="0" role="link" aria-label="Ouvrir la fiche de ${escapeHTML(project.name)}">
+      <td class="reference-dashboard-project"><strong>${escapeHTML(project.name)}</strong><span>${escapeHTML(project.id)}</span>${referenceStatusBadge(project)}</td>
+      <td>${escapeHTML(project.sector)}</td><td>${escapeHTML(project.wilayas.join(', '))}</td>
+      <td>${statusPill(alertTone, projectAlerts.length)}</td>
+      <td><strong class="reference-gap-value ${gapTone}">${gap > 0 ? '+' : '−'}${referenceNumber(Math.abs(gap), 0)} pts</strong></td>
+      <td><div class="reference-delay"><span><i class="${project.timeConsumed >= 100 ? 'late' : ''}" style="width:${delayWidth}%"></i></span><strong>${referencePercent(project.timeConsumed)}</strong></div></td>
+      <td><div class="reference-observation" title="${escapeHTML(project.observation)}">${escapeHTML(project.observation)}</div></td>
+    </tr>`;
+  }).join('');
   const alerts = summary.alerts.slice().sort((a, b) => (a.severity === 'Critique' ? 0 : 1) - (b.severity === 'Critique' ? 0 : 1));
   const alertRows = alerts.map((item) => `<tr>
     <td>${statusPill(item.severity === 'Critique' ? 'red' : 'orange', item.severity)}</td>
@@ -441,8 +445,8 @@ function referenceExecutiveDashboard() {
       </div></div></div>
       <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header d-flex justify-content-between align-items-center"><span>Distribution territoriale · ${wilayas.length} wilayas</span><button class="btn btn-sm btn-link" data-nav="map">Ouvrir la carte</button></div><div class="card-body"><div class="leaflet-mini-map" data-leaflet-map="executive" data-map-mode="reference"></div><p class="small text-muted mt-2 mb-0">Points géographiques indicatifs ; aucune limite administrative n’est dessinée.</p></div></div></div>
     </div>
-    <div class="card mb-4"><div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><span>Portefeuille détaillé · ${referenceProjects.length} projets</span><span class="small text-muted">Tous les montants détaillés en Md DA · données au ${escapeHTML(referenceSource.situationDate)}</span></div><div class="table-responsive"><table class="table table-enterprise reference-wide-table"><thead><tr>
-      <th>Projet / référence</th><th>Secteur</th><th>Wilaya(s)</th><th>AE initiale</th><th>AE actuelle</th><th>Engagé</th><th>Payé</th><th>Physique</th><th>Financier</th><th>Délai consommé</th><th>État</th><th>Début</th><th>Durée initiale</th><th>Durée en vigueur</th><th>Fin contractuelle</th><th>Marché travaux</th><th>Avenant en attente</th><th>Contractant</th><th>BET</th><th>Contrôle</th><th>Constat CNED</th><th>Recommandation</th>
+    <div class="card mb-4"><div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><span>Portefeuille suivi · ${summary.projectCount} projets</span><span class="small text-muted">Cliquez sur un projet pour ouvrir sa fiche</span></div><div class="table-responsive"><table class="table table-enterprise reference-headline-table"><thead><tr>
+      <th scope="col">Projet / référence</th><th scope="col">Secteur</th><th scope="col">Wilaya(s)</th><th scope="col">Alertes</th><th scope="col">Écart</th><th scope="col">Délai</th><th scope="col">Observation</th>
     </tr></thead><tbody>${projectsTable}</tbody></table></div></div>
     <div class="card mb-4"><div class="card-header">Registre des alertes stratégiques</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Priorité</th><th>Projet</th><th>Signal</th><th>Constat</th><th>Action recommandée</th></tr></thead><tbody>${alertRows}</tbody></table></div></div>
     <div class="row g-4 mb-4">
