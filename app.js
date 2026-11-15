@@ -408,15 +408,14 @@ function referenceExecutiveDashboard() {
       <h5>${projectStatusCount(summary.stoppedCount, 'projet à l’arrêt', 'projets à l’arrêt')}, ${projectStatusCount(summary.delayedCount, 'projet en retard', 'en retard')} et ${projectStatusCount(summary.watchCount, 'projet à surveiller', 'à surveiller')} sur les ${summary.projectCount} projets suivis</h5>
       <p>Les ${summary.projectCount} projets suivis représentent ${referenceNumber(summary.totalAe, 1)}&nbsp;Md DA d’AE, soit ${referenceNumber(summary.portfolioShare, 1)}&nbsp;% des ${referenceNumber(referenceSource.portfolioAe, 1)}&nbsp;Md DA du portefeuille de ${referenceSource.portfolioProjectCount} projets. ${referenceNumber(summary.totalPaid, 1)}&nbsp;Md DA ont été payés ; ${referenceNumber(summary.unpaidCommitments, 1)}&nbsp;Md DA d’engagements restent à décaisser. L’avancement physique (${referenceNumber(summary.weightedPhysical, 1)}&nbsp;%) et financier (${referenceNumber(summary.weightedFinancial, 1)}&nbsp;%) sont proches (${weightedGap >= 0 ? '+' : '−'}${referenceNumber(Math.abs(weightedGap), 1)}&nbsp;pt) au niveau global, mais les écarts par projet vont de ${summary.gapMin < 0 ? '−' : '+'}${referenceNumber(Math.abs(summary.gapMin), 0)} à +${referenceNumber(summary.gapMax, 0)} points. ${summary.alertCount} alertes sont ouvertes dont ${summary.criticalCount} critiques ; ${summary.pendingAmendmentCount} avenants et réévaluations (${referenceNumber(summary.pendingAmendmentTotal, 3)}&nbsp;Md DA chiffrés) attendent une approbation.</p>
     </section>
-    <div class="row g-3 mb-4">
+    <div class="reference-kpi-grid mb-4">
       ${[
-        ['AE · portefeuille complet', `${referenceNumber(referenceSource.portfolioAe, 1)} Md DA`, '51 projets · référence nationale'],
-        ['AE · projets détaillés', `${referenceNumber(summary.totalAe, 1)} Md DA`, `${referenceProjects.length} projets sur 51 · échantillon`],
-        ['Payé · échantillon détaillé', `${referenceNumber(summary.totalPaid, 1)} Md DA`, 'Calculé sur les 11 fiches disponibles'],
-        ['Engagé non payé · échantillon', `${referenceNumber(summary.unpaidCommitments, 1)} Md DA`, 'Engagements moins paiements · 11 projets'],
-        ['Avenants en attente', `${referenceNumber(referenceSource.pendingApprovals, 3)} Md DA`, 'Montants connus dans la synthèse CNED'],
-        ['Factures en attente', 'Information indisponible', 'Non fourni par la source']
-      ].map(([label, value, note]) => `<div class="col-12 col-sm-6 col-xl-4"><div class="card reference-kpi-card h-100"><div class="card-body"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong><small>${escapeHTML(note)}</small></div></div></div>`).join('')}
+        ['AE · portefeuille / projets suivis', `${referenceNumber(referenceSource.portfolioAe, 1)} / ${referenceNumber(summary.totalAe, 1)}`, 'Md DA', `${referenceSource.portfolioProjectCount} projets / ${summary.projectCount} projets suivis · ${referenceNumber(summary.portfolioShare, 1)} % du portefeuille`],
+        ['Payé · projets suivis', referenceNumber(summary.totalPaid, 1), 'Md DA', `${summary.projectCount} projets suivis · ${referenceNumber((summary.totalPaid / summary.totalAe) * 100, 1)} % de leur AE`],
+        ['Engagé non payé · projets suivis', referenceNumber(summary.unpaidCommitments, 1), 'Md DA', `${summary.projectCount} projets suivis · engagements moins paiements`],
+        ['Avenants en attente', referenceNumber(summary.pendingAmendmentTotal, 3), 'Md DA', `${summary.pendingAmendmentCount} dossiers · ${summary.pricedAmendmentCount} chiffrés · en attente d’approbation`],
+        ['Factures en attente', '—', '', 'Non fourni par la source']
+      ].map(([label, value, unit, note]) => `<div class="card reference-kpi-card h-100"><div class="card-body"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}${unit ? ` <small>${escapeHTML(unit)}</small>` : ''}</strong><small>${escapeHTML(note)}</small></div></div>`).join('')}
     </div>
     <div class="row g-4 mb-4">
       <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header">Avancement physique et financier · pondéré par l’AE</div><div class="card-body">

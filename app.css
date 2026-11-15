@@ -1271,6 +1271,30 @@ body {
   line-height: 1.4;
 }
 
+.reference-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+}
+
+.reference-kpi-card .card-body > strong small {
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media (min-width: 576px) and (max-width: 1199.98px) {
+  .reference-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .reference-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .reference-progress-row {
   display: grid;
   grid-template-columns: minmax(120px, 1.5fr) minmax(80px, 1fr) 72px;
