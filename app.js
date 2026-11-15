@@ -360,12 +360,20 @@ const referenceProjectBySlug = (slug) => referenceProjects.find((project) => pro
 const referenceNumber = (value, digits = 3) => value == null
   ? 'Information indisponible'
   : new Intl.NumberFormat('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+const referencePercent = (value, digits = 1) => `${referenceNumber(value, digits)}\u00a0%`;
 const referenceStatusBadge = (project) => {
   const status = referenceStatus(project);
   const color = status === 'À l’arrêt' ? 'red' : status === 'En retard' ? 'orange' : 'green';
   return statusPill(color, status);
 };
 const referenceSourceNote = () => `<div class="reference-source-note"><i class="bx bx-info-circle"></i><span><strong>${escapeHTML(referenceSource.status)}</strong> · Situation au ${escapeHTML(referenceSource.situationDate)} · Source : ${escapeHTML(referenceSource.label)}. Les données détaillées portent sur 11 projets ; le portefeuille complet en compte ${referenceSource.portfolioProjectCount}.</span></div>`;
+
+function kpiTile({ label, value, unit = '', note, tone = 'blue', icon = 'bx-info-circle', ratio = null }) {
+  const ratioBar = Number.isFinite(ratio)
+    ? `<div class="kpi-tile-ratio" role="progressbar" aria-label="${escapeHTML(label)}" aria-valuenow="${Math.max(0, Math.min(100, ratio))}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Math.max(0, Math.min(100, ratio))}%"></span></div>`
+    : '';
+  return `<article class="kpi-tile kpi-tone-${escapeHTML(tone)}"><div class="kpi-tile-top"><span class="kpi-tile-label">${escapeHTML(label)}</span><span class="kpi-tile-icon"><i class="bx ${escapeHTML(icon)}" aria-hidden="true"></i></span></div><div class="kpi-tile-value"><strong>${escapeHTML(value)}</strong>${unit ? `<span class="kpi-tile-unit">${escapeHTML(unit)}</span>` : ''}</div>${ratioBar}<small class="kpi-tile-note">${escapeHTML(note)}</small></article>`;
+}
 
 function referenceExecutiveDashboard() {
   const summary = referenceSummary();
@@ -410,12 +418,12 @@ function referenceExecutiveDashboard() {
     </section>
     <div class="reference-kpi-grid mb-4">
       ${[
-        ['AE · portefeuille / projets suivis', `${referenceNumber(referenceSource.portfolioAe, 1)} / ${referenceNumber(summary.totalAe, 1)}`, 'Md DA', `${referenceSource.portfolioProjectCount} projets / ${summary.projectCount} projets suivis · ${referenceNumber(summary.portfolioShare, 1)} % du portefeuille`],
-        ['Payé · projets suivis', referenceNumber(summary.totalPaid, 1), 'Md DA', `${summary.projectCount} projets suivis · ${referenceNumber((summary.totalPaid / summary.totalAe) * 100, 1)} % de leur AE`],
-        ['Engagé non payé · projets suivis', referenceNumber(summary.unpaidCommitments, 1), 'Md DA', `${summary.projectCount} projets suivis · engagements moins paiements`],
-        ['Avenants en attente', referenceNumber(summary.pendingAmendmentTotal, 3), 'Md DA', `${summary.pendingAmendmentCount} dossiers · ${summary.pricedAmendmentCount} chiffrés · en attente d’approbation`],
-        ['Factures en attente', '—', '', 'Non fourni par la source']
-      ].map(([label, value, unit, note]) => `<div class="card reference-kpi-card h-100"><div class="card-body"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}${unit ? ` <small>${escapeHTML(unit)}</small>` : ''}</strong><small>${escapeHTML(note)}</small></div></div>`).join('')}
+        { label: 'AE · portefeuille / projets suivis', value: `${referenceNumber(referenceSource.portfolioAe, 1)} / ${referenceNumber(summary.totalAe, 1)}`, unit: 'Md DA', note: `${referenceSource.portfolioProjectCount} projets / ${summary.projectCount} projets suivis · ${referencePercent(summary.portfolioShare)} du portefeuille`, tone: 'blue', icon: 'bx-wallet' },
+        { label: 'Payé · projets suivis', value: referenceNumber(summary.totalPaid, 1), unit: 'Md DA', note: `${summary.projectCount} projets suivis · ${referencePercent((summary.totalPaid / summary.totalAe) * 100)} de leur AE`, tone: 'green', icon: 'bx-trending-up', ratio: (summary.totalPaid / summary.totalAe) * 100 },
+        { label: 'Engagé non payé · projets suivis', value: referenceNumber(summary.unpaidCommitments, 1), unit: 'Md DA', note: `${summary.projectCount} projets suivis · engagements moins paiements`, tone: 'amber', icon: 'bx-receipt' },
+        { label: 'Avenants en attente', value: referenceNumber(summary.pendingAmendmentTotal, 3), unit: 'Md DA', note: `${summary.pendingAmendmentCount} dossiers · ${summary.pricedAmendmentCount} chiffrés · en attente d’approbation`, tone: pendingAmendments.some((amendment) => amendment.amount == null && /bloqué|reporté/i.test(amendment.status)) ? 'red' : 'amber', icon: 'bx-file' },
+        { label: 'Factures en attente', value: '—', note: 'Non fourni par la source', tone: 'grey', icon: 'bx-time-five' }
+      ].map(kpiTile).join('')}
     </div>
     <div class="row g-4 mb-4">
       <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header">Avancement physique et financier · pondéré par l’AE</div><div class="card-body">
@@ -539,14 +547,14 @@ function referencePmoPage() {
   let content = '';
   if (state.referenceProjectTab === 'synthese') {
     content = `<div class="row g-3 mb-4">${[
-      ['Avancement physique', `${referenceNumber(project.physical, 2)} %`, 'Travaux exécutés'],
-      ['Avancement financier', `${referenceNumber(project.financial, 2)} %`, 'Paiements sur le marché travaux'],
-      ['Délai consommé', `${referenceNumber(project.timeConsumed, 2)} %`, 'Durée contractuelle'],
-      ['Complétude terrain', 'À compléter', 'Données opérationnelles à fournir / valider'],
-      ['AE actuelle', `${referenceNumber(project.aeCurrent)} Md DA`, 'AE initiale : 90 Md DA'],
-      ['Engagé / payé', `${referenceNumber(project.committed)} / ${referenceNumber(project.paid)} Md DA`, 'Référence au 30/06/2025'],
-      ['Avenant en attente', `${referenceNumber(project.pendingAmendment)} Md DA`, 'Approbation requise']
-    ].map(([label, value, note]) => `<div class="col-12 col-sm-6 col-xl-4"><div class="card reference-kpi-card h-100"><div class="card-body"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong><small>${escapeHTML(note)}</small></div></div></div>`).join('')}</div>
+      { label: 'Avancement physique', value: referencePercent(project.physical, 2), note: 'Travaux exécutés', tone: 'amber', icon: 'bx-trending-up', ratio: project.physical },
+      { label: 'Avancement financier', value: referencePercent(project.financial, 2), note: 'Paiements sur le marché travaux', tone: 'green', icon: 'bx-wallet', ratio: project.financial },
+      { label: 'Délai consommé', value: referencePercent(project.timeConsumed, 2), note: 'Durée contractuelle', tone: project.timeConsumed >= 100 ? 'red' : 'amber', icon: 'bx-time-five', ratio: project.timeConsumed },
+      { label: 'Complétude terrain', value: 'À compléter', note: 'Données opérationnelles à fournir / valider', tone: 'grey', icon: 'bx-map-pin' },
+      { label: 'AE actuelle', value: referenceNumber(project.aeCurrent), unit: 'Md DA', note: project.aeInitial == null ? 'AE initiale indisponible' : `AE initiale : ${referenceNumber(project.aeInitial)} Md DA`, tone: 'blue', icon: 'bx-wallet' },
+      { label: 'Engagé / payé', value: `${referenceNumber(project.committed)} / ${referenceNumber(project.paid)}`, unit: 'Md DA', note: `Situation au ${referenceSource.situationDate}`, tone: 'green', icon: 'bx-receipt' },
+      { label: 'Avenant en attente', value: referenceNumber(project.pendingAmendment), unit: 'Md DA', note: 'Approbation requise', tone: 'amber', icon: 'bx-file' }
+    ].map((item) => `<div class="col-12 col-sm-6 col-xl-4">${kpiTile(item)}</div>`).join('')}</div>
     <div class="row g-4"><div class="col-12 col-xl-7"><div class="card h-100"><div class="card-header">Synthèse décisionnelle du projet</div><div class="card-body">
       <div class="reference-decision-banner compact"><h6>Le délai consommé (${referenceNumber(project.timeConsumed, 0)} %) dépasse l’avancement physique (${referenceNumber(project.physical, 0)} %) de ${referenceNumber(project.timeConsumed - project.physical, 0)} points.</h6><p>Le rythme requis pour achever les travaux est d’environ ${referenceNumber(requiredCadence, 2)} points par mois contre ${referenceNumber(observedCadence, 2)} observé. La source signale des emprises et réseaux non achevés ; le périmètre et le coût de la section PK 34–38 nécessitent un arbitrage.</p></div>
       ${referenceFact('Constat CNED', project.observation)}
