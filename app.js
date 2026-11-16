@@ -1752,8 +1752,8 @@ function initializeLeafletMaps(root) {
         { label: 'En cours', title: 'Projets · En cours', layer: statusLayers['Projets · En cours'], color: '#428b6e' },
         { label: 'En retard / surveillance', title: 'Projets · En retard / surveillance', layer: statusLayers['Projets · En retard / surveillance'], color: '#c97b21' },
         { label: 'À l’arrêt', title: 'Projets · À l’arrêt', layer: statusLayers['Projets · À l’arrêt'], color: '#bf5550' },
-        { label: 'Alertes critiques', title: 'Alertes critiques', layer: criticalLayer, color: '#8f2d28' },
-        { label: 'Sahara occidental', title: 'Sahara occidental · limite nord', layer: saharaLayer, color: '#1f2d3a' }
+        { label: 'Alertes critiques', title: 'Alertes critiques', layer: criticalLayer, color: '#8f2d28' }
+        //{ label: 'Sahara occidental', title: 'Sahara occidental · limite nord', layer: saharaLayer, color: '#1f2d3a' }
       ]);
     }
     // Vue initiale : carte nationale = toute l'Algérie, vue d'ensemble (pas de zoom sur un projet) ;
