@@ -224,7 +224,7 @@ const translations = {
     Portefeuille: 'المحفظة',
     'Nouvelle alerte': 'تنبيه جديد',
     'Espace projet · Djendjen': 'مساحة المشروع · جيجل',
-    'Synthèse générale': 'ملخص عام'
+    'Tableau de bord · portefeuille CNED': 'لوحة القيادة · محفظة CNED'
   }
 };
 
@@ -406,13 +406,12 @@ const referenceStatusBadge = (project) => {
   const color = status === 'À l’arrêt' ? 'red' : status === 'En retard' ? 'orange' : 'green';
   return statusPill(color, status);
 };
-const referenceSourceNote = () => `<div class="reference-source-note"><i class="bx bx-info-circle"></i><span><strong>${escapeHTML(referenceSource.status)}</strong> · Situation au ${escapeHTML(referenceSource.situationDate)} · Source : ${escapeHTML(referenceSource.label)}. Les données détaillées portent sur ${referenceProjects.length} projets ; le portefeuille complet en compte ${referenceSource.portfolioProjectCount}.</span></div>`;
 
-function kpiTile({ label, value, unit = '', note, tone = 'blue', icon = 'bx-info-circle', ratio = null }) {
+function kpiTile({ label, value, valueHtml = '', unit = '', note, tone = 'blue', icon = 'bx-info-circle', ratio = null, wide = false }) {
   const ratioBar = Number.isFinite(ratio)
     ? `<div class="kpi-tile-ratio" role="progressbar" aria-label="${escapeHTML(label)}" aria-valuenow="${Math.max(0, Math.min(100, ratio))}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Math.max(0, Math.min(100, ratio))}%"></span></div>`
     : '';
-  return `<article class="kpi-tile kpi-tone-${escapeHTML(tone)}"><div class="kpi-tile-top"><span class="kpi-tile-label">${escapeHTML(label)}</span><span class="kpi-tile-icon"><i class="bx ${escapeHTML(icon)}" aria-hidden="true"></i></span></div><div class="kpi-tile-value"><strong>${escapeHTML(value)}</strong>${unit ? `<span class="kpi-tile-unit">${escapeHTML(unit)}</span>` : ''}</div>${ratioBar}<small class="kpi-tile-note">${escapeHTML(note)}</small></article>`;
+  return `<article class="kpi-tile kpi-tone-${escapeHTML(tone)}${wide ? ' kpi-tile-wide' : ''}"><div class="kpi-tile-top"><span class="kpi-tile-label">${escapeHTML(label)}</span><span class="kpi-tile-icon"><i class="bx ${escapeHTML(icon)}" aria-hidden="true"></i></span></div><div class="kpi-tile-value">${valueHtml || `<strong>${escapeHTML(value)}</strong>`}${unit ? `<span class="kpi-tile-unit">${escapeHTML(unit)}</span>` : ''}</div>${ratioBar}<small class="kpi-tile-note">${escapeHTML(note)}</small></article>`;
 }
 
 function referenceExecutiveDashboard() {
@@ -459,22 +458,52 @@ function referenceExecutiveDashboard() {
     const width = Math.max(0, Math.min(100, value));
     return `<div class="reference-weighted-bar"><div class="reference-weighted-label"><span>${escapeHTML(label)}</span><strong>${referencePercent(value)}</strong></div><div class="reference-weighted-track" role="progressbar" aria-label="${escapeHTML(label)}" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100" aria-valuetext="${escapeHTML(referencePercent(value))}" title="${value} %"><span class="reference-weighted-fill ${tone}" style="width:${width}%"></span><i aria-hidden="true"></i></div></div>`;
   }).join('');
-  return `${pageHeading('Synthèse générale · portefeuille CNED', `Arbitrages, risques et exécution des projets · situation de référence au ${referenceSource.situationDate}`, '<button class="btn btn-outline-primary btn-sm" data-nav="map"><i class="bx bx-map me-1"></i>Carte nationale</button>')}
-    ${referenceSourceNote()}
-    <section class="reference-decision-banner mb-4">
-      <span class="eyebrow">Synthèse générale</span>
-      <h5>${projectStatusCount(summary.stoppedCount, 'projet à l’arrêt', 'projets à l’arrêt')}, ${projectStatusCount(summary.delayedCount, 'projet en retard', 'en retard')} et ${projectStatusCount(summary.watchCount, 'projet à surveiller', 'à surveiller')} sur les ${summary.projectCount} projets suivis</h5>
-      <p>Les ${summary.projectCount} projets suivis représentent ${referenceNumber(summary.totalAe, 1)}&nbsp;Md DA d’AE, soit ${referenceNumber(summary.portfolioShare, 1)}&nbsp;% des ${referenceNumber(referenceSource.portfolioAe, 1)}&nbsp;Md DA du portefeuille de ${referenceSource.portfolioProjectCount} projets. ${referenceNumber(summary.totalPaid, 1)}&nbsp;Md DA ont été payés ; ${referenceNumber(summary.unpaidCommitments, 1)}&nbsp;Md DA d’engagements restent à décaisser. L’avancement physique (${referenceNumber(summary.weightedPhysical, 1)}&nbsp;%) et financier (${referenceNumber(summary.weightedFinancial, 1)}&nbsp;%) sont proches (${weightedGap >= 0 ? '+' : '−'}${referenceNumber(Math.abs(weightedGap), 1)}&nbsp;pt) au niveau global, mais les écarts par projet vont de ${summary.gapMin < 0 ? '−' : '+'}${referenceNumber(Math.abs(summary.gapMin), 0)} à +${referenceNumber(summary.gapMax, 0)} points. ${summary.alertCount} alertes sont ouvertes dont ${summary.criticalCount} critiques ; ${summary.pendingAmendmentCount} avenants et réévaluations (${referenceNumber(summary.pendingAmendmentTotal, 3)}&nbsp;Md DA chiffrés) attendent une approbation.</p>
-    </section>
+  const statusCounts = [
+    ['À l’arrêt', summary.stoppedCount, 'red', 'bx-stop-circle'],
+    ['En retard', summary.delayedCount, 'amber', 'bx-time-five'],
+    ['À surveiller', summary.watchCount, 'blue', 'bx-show']
+  ];
+  const statusStrip = `<section class="dashboard-status-strip mb-4" aria-label="État des projets suivis">${statusCounts.map(([label, count, tone, iconName]) => `<button type="button" class="dashboard-status dashboard-status-${tone}" data-dashboard-status="${escapeHTML(label)}" aria-label="${count} ${escapeHTML(label)} : ouvrir le portefeuille filtré"><span class="dashboard-status-icon"><i class="bx ${iconName}" aria-hidden="true"></i></span><span class="dashboard-status-text"><strong>${count}</strong><small>${escapeHTML(label)}</small></span></button>`).join('')}<button type="button" class="dashboard-status dashboard-status-critical" data-nav="alerts" aria-label="${summary.criticalCount} alertes critiques : ouvrir les alertes"><span class="dashboard-status-icon"><i class="bx bx-error-circle" aria-hidden="true"></i></span><span class="dashboard-status-text"><strong>${summary.criticalCount}</strong><small>Alertes critiques · ${summary.alertCount} au total</small></span></button></section>`;
+  const paidShare = (summary.totalPaid / summary.totalAe) * 100;
+  const unpaidShare = (summary.unpaidCommitments / summary.totalAe) * 100;
+  const uncommittedShare = Math.max(0, 100 - paidShare - unpaidShare);
+  const stateTotal = Math.max(1, summary.projectCount);
+  const stoppedEnd = (summary.stoppedCount / stateTotal) * 100;
+  const delayedEnd = stoppedEnd + (summary.delayedCount / stateTotal) * 100;
+  const alertsByProject = referenceProjects.map((project) => ({ project, alerts: referenceAlerts(project) })).filter((item) => item.alerts.length).sort((x, y) => y.alerts.filter((alert) => alert.severity === 'Critique').length - x.alerts.filter((alert) => alert.severity === 'Critique').length || y.alerts.length - x.alerts.length).slice(0, 4);
+  const importantCount = summary.alertCount - summary.criticalCount;
+  const analyticsRow = `<div class="row g-4 mb-4">
+      <div class="col-12 col-lg-6 col-xl-4"><div class="card h-100"><div class="card-header">Répartition par état</div><div class="card-body dashboard-donut-body">
+        <div class="dashboard-donut" role="img" aria-label="${summary.stoppedCount} à l’arrêt, ${summary.delayedCount} en retard, ${summary.watchCount} à surveiller sur ${summary.projectCount} projets" style="background:conic-gradient(var(--cned-red) 0 ${stoppedEnd}%, var(--cned-orange) ${stoppedEnd}% ${delayedEnd}%, var(--cned-blue) ${delayedEnd}% 100%)"><span><strong>${summary.projectCount}</strong><small>projets suivis</small></span></div>
+        <ul class="dashboard-legend">${statusCounts.map(([label, count, tone]) => `<li><i class="dot-${tone}"></i><span>${escapeHTML(label)}</span><strong>${count}</strong><em>${referencePercent((count / stateTotal) * 100)}</em></li>`).join('')}</ul>
+      </div></div></div>
+      <div class="col-12 col-lg-6 col-xl-4"><div class="card h-100"><div class="card-header d-flex justify-content-between align-items-center"><span>Alertes par niveau</span><button class="btn btn-sm btn-link" data-nav="alerts">Voir les alertes</button></div><div class="card-body">
+        ${[['Critique', summary.criticalCount, 'red'], ['Important', importantCount, 'orange']].map(([label, count, tone]) => `<div class="dashboard-meter"><div><span>${label}</span><strong>${count}</strong></div><div class="dashboard-meter-track" role="progressbar" aria-label="${label}" aria-valuenow="${count}" aria-valuemin="0" aria-valuemax="${summary.alertCount}"><span class="tone-${tone}" style="width:${summary.alertCount ? (count / summary.alertCount) * 100 : 0}%"></span></div></div>`).join('')}
+        <h6 class="reference-gap-heading mt-4">Projets les plus exposés</h6>
+        ${alertsByProject.map(({ project, alerts }) => `<div class="dashboard-exposed reference-row-link" data-reference-project="${escapeHTML(project.slug)}" tabindex="0" role="link" aria-label="Ouvrir la fiche de ${escapeHTML(project.name)}"><span>${escapeHTML(project.name)}</span>${statusPill(alerts.some((alert) => alert.severity === 'Critique') ? 'red' : 'orange', `${alerts.length} alerte${alerts.length > 1 ? 's' : ''}`)}</div>`).join('')}
+      </div></div></div>
+      <div class="col-12 col-xl-4"><div class="card h-100"><div class="card-header">Exécution financière · projets suivis</div><div class="card-body">
+        <div class="dashboard-stack" role="img" aria-label="Payé ${referencePercent(paidShare)}, engagé non payé ${referencePercent(unpaidShare)}, non engagé ${referencePercent(uncommittedShare)} de l’AE des projets suivis"><span class="stack-paid" style="width:${paidShare}%"></span><span class="stack-unpaid" style="width:${unpaidShare}%"></span><span class="stack-free" style="width:${uncommittedShare}%"></span></div>
+        <ul class="dashboard-legend mt-3">
+          <li><i class="dot-green"></i><span>Payé</span><strong>${referenceNumber(summary.totalPaid, 1)} Md DA</strong><em>${referencePercent(paidShare)}</em></li>
+          <li><i class="dot-orange"></i><span>Engagé non payé</span><strong>${referenceNumber(summary.unpaidCommitments, 1)} Md DA</strong><em>${referencePercent(unpaidShare)}</em></li>
+          <li><i class="dot-grey"></i><span>Non engagé</span><strong>${referenceNumber(summary.totalAe - summary.totalCommitted, 1)} Md DA</strong><em>${referencePercent(uncommittedShare)}</em></li>
+        </ul>
+        <p class="dashboard-note">Part de l’AE actuelle des ${summary.projectCount} projets suivis (${referenceNumber(summary.totalAe, 1)} Md DA).</p>
+      </div></div></div>
+    </div>`;
+  return `${pageHeading('Tableau de bord · portefeuille CNED', 'Arbitrages, risques et exécution des projets suivis', '<button class="btn btn-outline-primary btn-sm" data-nav="map"><i class="bx bx-map me-1"></i>Carte nationale</button>')}
+    ${statusStrip}
     <div class="reference-kpi-grid mb-4">
       ${[
-        { label: 'AE · portefeuille / projets suivis', value: `${referenceNumber(referenceSource.portfolioAe, 1)} / ${referenceNumber(summary.totalAe, 1)}`, unit: 'Md DA', note: `${referenceSource.portfolioProjectCount} projets / ${summary.projectCount} projets suivis · ${referencePercent(summary.portfolioShare)} du portefeuille`, tone: 'blue', icon: 'bx-wallet' },
-        { label: 'Payé · projets suivis', value: referenceNumber(summary.totalPaid, 1), unit: 'Md DA', note: `${summary.projectCount} projets suivis · ${referencePercent((summary.totalPaid / summary.totalAe) * 100)} de leur AE`, tone: 'green', icon: 'bx-trending-up', ratio: (summary.totalPaid / summary.totalAe) * 100 },
-        { label: 'Engagé non payé · projets suivis', value: referenceNumber(summary.unpaidCommitments, 1), unit: 'Md DA', note: `${summary.projectCount} projets suivis · engagements moins paiements`, tone: 'amber', icon: 'bx-receipt' },
+        { label: 'AE · Portefeuille / Projets', valueHtml: `<span class="kpi-pair"><span class="kpi-pair-item"><strong>${referenceNumber(referenceSource.portfolioAe, 1)}</strong><small>Portefeuille · ${referenceSource.portfolioProjectCount} projets</small></span><span class="kpi-pair-sep" aria-hidden="true">/</span><span class="kpi-pair-item"><strong>${referenceNumber(summary.totalAe, 1)}</strong><small>Projets suivis · ${summary.projectCount}</small></span></span>`, unit: 'Md DA', note: `Les projets suivis représentent ${referencePercent(summary.portfolioShare)} de l’AE du portefeuille`, tone: 'blue', icon: 'bx-wallet', wide: true },
+        { label: 'Payé · Projets suivis', value: referenceNumber(summary.totalPaid, 1), unit: 'Md DA', note: `${summary.projectCount} projets suivis · ${referencePercent(paidShare)} de leur AE`, tone: 'green', icon: 'bx-trending-up', ratio: paidShare },
+        { label: 'Engagé non payé · Projets suivis', value: referenceNumber(summary.unpaidCommitments, 1), unit: 'Md DA', note: `${summary.projectCount} projets suivis · engagements moins paiements`, tone: 'amber', icon: 'bx-receipt' },
         { label: 'Avenants en attente', value: referenceNumber(summary.pendingAmendmentTotal, 3), unit: 'Md DA', note: `${summary.pendingAmendmentCount} dossiers · ${summary.pricedAmendmentCount} chiffrés · en attente d’approbation`, tone: pendingAmendments.some((amendment) => amendment.amount == null && /bloqué|reporté/i.test(amendment.status)) ? 'red' : 'amber', icon: 'bx-file' },
         { label: 'Factures en attente', value: '—', note: 'Non fourni par la source', tone: 'grey', icon: 'bx-time-five' }
       ].map(kpiTile).join('')}
     </div>
+    ${analyticsRow}
     <div class="row g-4 mb-4">
       <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header">Avancement physique et financier · pondéré par l’AE</div><div class="card-body">
         ${weightedBars}
@@ -601,7 +630,7 @@ function referencePmoPage() {
       { label: 'Délai consommé', value: referencePercent(project.timeConsumed, 2), note: 'Durée contractuelle', tone: project.timeConsumed >= 100 ? 'red' : 'amber', icon: 'bx-time-five', ratio: project.timeConsumed },
       { label: 'Complétude terrain', value: 'À compléter', note: 'Données opérationnelles à fournir / valider', tone: 'grey', icon: 'bx-map-pin' },
       { label: 'AE actuelle', value: referenceNumber(project.aeCurrent), unit: 'Md DA', note: project.aeInitial == null ? 'AE initiale indisponible' : `AE initiale : ${referenceNumber(project.aeInitial)} Md DA`, tone: 'blue', icon: 'bx-wallet' },
-      { label: 'Engagé / payé', value: `${referenceNumber(project.committed)} / ${referenceNumber(project.paid)}`, unit: 'Md DA', note: `Situation au ${referenceSource.situationDate}`, tone: 'green', icon: 'bx-receipt' },
+      { label: 'Engagé / payé', value: `${referenceNumber(project.committed)} / ${referenceNumber(project.paid)}`, unit: 'Md DA', note: 'Engagements et paiements cumulés', tone: 'green', icon: 'bx-receipt' },
       { label: 'Avenant en attente', value: referenceNumber(project.pendingAmendment), unit: 'Md DA', note: 'Approbation requise', tone: 'amber', icon: 'bx-file' }
     ].map((item) => `<div class="col-12 col-sm-6 col-xl-4">${kpiTile(item)}</div>`).join('')}</div>
     <div class="row g-4"><div class="col-12 col-xl-7"><div class="card h-100"><div class="card-header">Synthèse décisionnelle du projet</div><div class="card-body">
@@ -619,7 +648,7 @@ function referencePmoPage() {
     </div></div></div></div>`;
   } else if (state.referenceProjectTab === 'technique') {
     content = `<div class="row g-4"><div class="col-12 col-xl-7"><div class="card"><div class="card-header">Avancement technique par lot · référence CNED</div><div class="card-body">${djendjenTechnicalLots.map((lot) => referenceProgress(lot.name, lot.progress)).join('')}${referenceProgress('Avancement global', project.physical)}</div></div></div>
-      <div class="col-12 col-xl-5"><div class="card"><div class="card-header">Lecture technique</div><div class="card-body">${referenceFact('Point d’attention', 'Libération des emprises et déplacement des réseaux non achevés.')}${referenceFact('Section PK 34–38', 'Consistance et coût à arrêter.')}${referenceFact('Dernière donnée technique', 'Situation au 30/06/2025')}${referenceFact('Observations détaillées de lot', 'À renseigner / à valider par le maître d’ouvrage.')}</div></div></div></div>`;
+      <div class="col-12 col-xl-5"><div class="card"><div class="card-header">Lecture technique</div><div class="card-body">${referenceFact('Point d’attention', 'Libération des emprises et déplacement des réseaux non achevés.')}${referenceFact('Section PK 34–38', 'Consistance et coût à arrêter.')}${referenceFact('Observations détaillées de lot', 'À renseigner / à valider par le maître d’ouvrage.')}</div></div></div></div>`;
   } else if (state.referenceProjectTab === 'chantier') {
     content = `<div class="card mb-4"><div class="card-header">Données opérationnelles et suivi terrain</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Groupe</th><th>Donnée attendue</th><th>État de la donnée</th><th>Valeur / prochaine action</th></tr></thead><tbody>${djendjenOperationalFields.map((field) => {
       const update = state.referenceOperationalUpdates[`${project.slug}:${field.name}`];
@@ -675,7 +704,7 @@ function referencePmoPage() {
       ['Durée en vigueur', `${referenceNumber(project.currentDurationMonths, 1)} mois · × ${referenceNumber(durationRatio, 2)}`],
       ['Délai consommé', `${referenceNumber(project.timeConsumed, 2)} %`],
       ['Fin contractuelle', project.contractualEnd]
-    ].map(([label, value]) => `<div class="col-12 col-sm-6 col-xl-3"><div class="card reference-kpi-card h-100"><div class="card-body"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong><small>Situation au ${referenceSource.situationDate}</small></div></div></div>`).join('')}</div>
+    ].map(([label, value]) => `<div class="col-12 col-sm-6 col-xl-3"><div class="card reference-kpi-card h-100"><div class="card-body"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong></div></div></div>`).join('')}</div>
     <div class="card"><div class="card-header">Cadence nécessaire pour terminer</div><div class="card-body">
       ${referenceProgress('Délai consommé', project.timeConsumed)}
       ${referenceProgress('Avancement physique', project.physical)}
@@ -692,7 +721,7 @@ function referencePmoPage() {
       { title: `Cadence requise : × ${referenceNumber(requiredCadence / observedCadence, 2)} la cadence observée`, explanation: `${referenceNumber(requiredCadence, 2)} points par mois requis contre ${referenceNumber(observedCadence, 2)} observé.`, action: 'Réviser le plan de mobilisation et suivre les engagements.' },
       { title: `Réévaluation en attente : ${referenceNumber(project.pendingAmendment)} Md DA`, explanation: 'Avenant n°14 travaux et n°08 contrôle dans l’attente d’approbation.', action: 'Obtenir l’approbation ou fixer une date limite.' }
     ];
-    content = `<div class="card"><div class="card-header">Cinq alertes de référence · informations historiques</div><div class="card-body">${alerts.map((alert) => `<article class="reference-alert"><div>${statusPill('red', 'À arbitrer')}</div><div><strong>${escapeHTML(alert.title)}</strong><p>${escapeHTML(alert.explanation)}</p><small><b>Action :</b> ${escapeHTML(alert.action)}</small></div></article>`).join('')}
+    content = `<div class="card"><div class="card-header">Alertes du projet</div><div class="card-body">${alerts.map((alert) => `<article class="reference-alert"><div>${statusPill('red', 'À arbitrer')}</div><div><strong>${escapeHTML(alert.title)}</strong><p>${escapeHTML(alert.explanation)}</p><small><b>Action :</b> ${escapeHTML(alert.action)}</small></div></article>`).join('')}
       <h6 class="mt-4">Blocages opérationnels signalés</h6><p>${escapeHTML(project.observation)}</p><p class="mb-0"><strong>Recommandation :</strong> ${escapeHTML(project.recommendation)}</p>
     </div></div>`;
   } else if (state.referenceProjectTab === 'kpi') {
@@ -703,10 +732,10 @@ function referencePmoPage() {
       <tr><td>Dérive du délai</td><td>× ${referenceNumber(durationRatio, 2)}</td><td>${statusPill('red', 'Critique')}</td><td>Vérifier les prolongations légitimes</td></tr>
       <tr><td>Cadence requise / observée</td><td>× ${referenceNumber(requiredCadence / observedCadence, 2)}</td><td>${statusPill('red', 'Critique')}</td><td>Actualiser le planning et le plan de mobilisation</td></tr>
       <tr><td>Réévaluation en attente</td><td>${referenceNumber(project.pendingAmendment)} Md DA</td><td>${statusPill('orange', 'Important')}</td><td>Obtenir l’approbation · parties compétentes</td></tr>
-    </tbody></table></div><div class="card-body"><div class="access-note">Les définitions et seuils du catalogue KPI institutionnel restent dans le catalogue dédié. Les signaux ci-dessus proviennent uniquement de la fiche CNED de référence.</div></div></div>`;
+    </tbody></table></div></div>`;
   } else if (state.referenceProjectTab === 'documents') {
     content = `<div class="card"><div class="card-header">Documents et pièces justificatives</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Pièce</th><th>Situation</th><th>Source / action</th></tr></thead><tbody>
-      <tr><td>Rapport de synthèse CNED</td><td>${statusPill('green', 'Disponible')}</td><td>Situation au 30/06/2025 · septembre 2025</td></tr>
+      <tr><td>Rapport de synthèse CNED</td><td>${statusPill('green', 'Disponible')}</td><td>Septembre 2025</td></tr>
       ${['Marché de travaux et avenants signés', 'Ordres de service d’arrêt / reprise', 'Garanties et polices d’assurance', 'Situations de travaux et paiements', 'Procès-verbaux de réception', 'Photos de terrain géolocalisées'].map((name) => `<tr><td>${escapeHTML(name)}</td><td>${statusPill('info', 'À téléverser')}</td><td>Information indisponible dans la synthèse</td></tr>`).join('')}
     </tbody></table></div><div class="card-body"><div class="access-note">Les pièces absentes ne sont pas simulées. Les déposer dans l’espace documentaire du prototype reste une action locale de démonstration.</div><button class="btn btn-outline-primary btn-sm mt-3" data-nav="documents">Ouvrir les documents</button></div></div>`;
   } else if (state.referenceProjectTab === 'discussions') {
@@ -717,16 +746,10 @@ function referencePmoPage() {
     </div></div></div><div class="col-12 col-xl-5"><div class="card"><div class="card-header">Communication de projet</div><div class="card-body"><p>Les échanges disponibles dans la plateforme restent des données locales de démonstration.</p><button class="btn btn-primary" data-nav="messages">Ouvrir la communication</button></div></div></div></div>`;
   } else {
     content = `<div class="card"><div class="card-header">Historique et traçabilité</div><div class="card-body">
-      ${referenceFact('Source', referenceSource.label)}
-      ${referenceFact('Date de situation', referenceSource.situationDate)}
-      ${referenceFact('Statut de la donnée', 'Donnée de référence historique · non actualisée en temps réel')}
       ${referenceFact('Date de démarrage', project.startDate)}
-      ${referenceFact('Dernière actualisation métier connue', 'Information indisponible au-delà de la situation du 30/06/2025')}
-      <div class="access-note mt-3">Les indicateurs et alertes de cette fiche ne sont pas des données opérationnelles en direct.</div>
     </div></div>`;
   }
   return `${pageHeading(project.name, `${project.id} · ${project.sector} · ${project.wilayas.join(', ')}`, '<button class="btn btn-outline-primary btn-sm" data-nav="dashboard"><i class="bx bx-arrow-back me-1"></i>Vision Direction</button>')}
-    ${referenceSourceNote()}
     <div class="card mb-4"><div class="card-body pb-3"><div class="d-flex flex-wrap justify-content-between align-items-start gap-3"><div><span class="text-muted small">${escapeHTML(project.id)} · ${escapeHTML(project.sector)}</span><h5 class="mb-1">${escapeHTML(project.name)}</h5><span class="text-muted small">${escapeHTML(project.wilayas.join(', '))} · fin contractuelle : ${escapeHTML(project.contractualEnd)}</span></div>${referenceStatusBadge(project)}</div>
       ${nav}<div class="pt-4">${content}</div>
     </div></div>`;
@@ -749,7 +772,6 @@ function referenceProjectDetailPage() {
     ['Contractant', project.contractor], ['BET', project.bet], ['Contrôle / BCS', project.control]
   ];
   return `${pageHeading(project.name, `${project.id} · ${project.sector} · ${project.wilayas.join(', ')}`, '<button class="btn btn-outline-secondary btn-sm" data-nav="dashboard"><i class="bx bx-arrow-back me-1"></i>Retour</button>')}
-    ${referenceSourceNote()}
     <div class="row g-4"><div class="col-12 col-xl-8"><div class="card"><div class="card-header">Données de la fiche projet</div><div class="card-body"><div class="row g-3">${fields.map(([label, value]) => `<div class="col-12 col-sm-6">${referenceFact(label, value)}</div>`).join('')}</div>
       <div class="reference-decision-banner compact mt-4"><h6>Constat CNED</h6><p>${escapeHTML(project.observation)}</p><strong>Recommandation :</strong> ${escapeHTML(project.recommendation)}</div>
     </div></div></div><div class="col-12 col-xl-4"><div class="card"><div class="card-header">État et localisation</div><div class="card-body">${referenceStatusBadge(project)}<p class="mt-3">${escapeHTML(project.wilayas.join(', '))}</p><div class="leaflet-mini-map" data-leaflet-map="reference-detail" data-map-mode="project" data-project-slug="${project.slug}"></div><small class="text-muted">Point indicatif de la fiche source ; aucun tracé de l’infrastructure n’est fourni.</small><button class="btn btn-primary w-100 mt-3" data-nav="map">Voir la carte nationale</button></div></div></div></div>`;
@@ -761,7 +783,7 @@ function referenceAlertRegister() {
     <td><button class="btn btn-link p-0 text-start table-project-name" data-reference-project="${project.slug}">${escapeHTML(project.name)}</button><span class="table-project-meta">${escapeHTML(project.id)}</span></td>
     <td>${escapeHTML(alert.title)}</td><td>${escapeHTML(project.observation)}</td><td>${escapeHTML(alert.action)}</td>
   </tr>`)).join('');
-  return `<div class="card mt-4"><div class="card-header">Alertes de référence · situation au ${referenceSource.situationDate}</div><div class="card-body pt-0"><p class="small text-muted">Signaux calculés à partir des 11 fiches CNED détaillées. Ils restent distincts des événements illustratifs actuels et ne constituent pas des données en temps réel.</p></div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Priorité</th><th>Projet</th><th>Signal</th><th>Constat source</th><th>Action recommandée</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  return `<div class="card mt-4"><div class="card-header">Alertes des projets suivis</div><div class="table-responsive"><table class="table table-enterprise"><thead><tr><th>Priorité</th><th>Projet</th><th>Signal</th><th>Constat source</th><th>Action recommandée</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 function kpiMetric(id) {
@@ -807,7 +829,6 @@ function referencePortfolioPage() {
     </tr>`;
   }).join('');
   return `${pageHeading('Portefeuille de projets', 'Fiche technique de chaque projet.', '<button class="btn btn-outline-secondary btn-sm" data-export="projects"><i class="bx bx-download me-1"></i>Exporter CSV</button>')}
-    ${referenceSourceNote()}
     <div class="card">
       <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div><strong>Projets suivis</strong><span class="text-muted small ms-2">${filtered.length} / ${referenceProjects.length}</span></div>
@@ -978,8 +999,7 @@ function mapPage() {
   const content = state.mapView === 'map'
     ? `<div class="leaflet-map" id="national-leaflet-map" data-leaflet-map="national" data-map-mode="reference" data-project-list="${visibleProjects.map((project) => project.slug).join(',')}" data-wilaya-list="${selectedWilayas.map((item) => item.code).join(',')}" data-selected-project="${selected?.slug || ''}"></div>`
     : `<div class="list-group reference-map-list">${projectList || '<div class="empty-state">Aucun projet de référence ne correspond aux filtres.</div>'}</div>`;
-  return `${pageHeading('Carte nationale des projets', 'Carte Leaflet · projets de référence CNED et couverture géographique des 69 wilayas', `<button class="btn btn-outline-secondary btn-sm" data-map-toggle><i class="bx bx-list-ul me-1"></i>${state.mapView === 'map' ? 'Vue liste' : 'Vue carte'}</button><button class="btn btn-outline-primary btn-sm" data-map-fit><i class="bx bx-fullscreen me-1"></i>Voir tout</button>`)}
-    ${referenceSourceNote()}
+  return `${pageHeading('Carte nationale des projets', 'Carte Leaflet · projets suivis CNED et couverture géographique des 69 wilayas', `<button class="btn btn-outline-secondary btn-sm" data-map-toggle><i class="bx bx-list-ul me-1"></i>${state.mapView === 'map' ? 'Vue liste' : 'Vue carte'}</button><button class="btn btn-outline-primary btn-sm" data-map-fit><i class="bx bx-fullscreen me-1"></i>Voir tout</button>`)}
     <div class="card"><div class="card-header"><strong>Filtres géographiques et de portefeuille</strong></div><div class="card-body">
       <form class="reference-map-filters" data-form="map-filters">
         <label>Rechercher<input class="form-control form-control-sm" name="query" value="${escapeHTML(filters.query || '')}" placeholder="Projet, référence, secteur"></label>
@@ -993,14 +1013,13 @@ function mapPage() {
       </form>
       <div class="map-layout reference-map-layout mt-4"><div>${content}<p class="small text-muted mt-2 mb-0" data-map-message>Les points de wilaya sont des repères indicatifs dérivés des coordonnées des communes source, pas des limites administratives. Les tracés des infrastructures ne sont pas fournis.</p></div>
         <aside class="reference-map-aside"><div class="map-legend mb-3"><span><i class="legend-dot" style="background:#bf5550"></i>À l’arrêt</span><span><i class="legend-dot" style="background:#c97b21"></i>En retard / surveillance</span><span><i class="legend-dot" style="background:#428b6e"></i>Suivi normal</span></div>
-          <strong>${visibleProjects.length} projet(s) de référence · ${selectedWilayas.length} wilaya(s) affichée(s)</strong>
+          <strong>${visibleProjects.length} projet(s) suivi(s) · ${selectedWilayas.length} wilaya(s) affichée(s)</strong>
           <div class="list-group reference-map-project-list mt-2">${projectList || '<div class="empty-state py-3">Aucun projet ne correspond aux filtres.</div>'}</div>
           ${selected ? `<div class="map-selection mt-3" data-map-selection><span class="eyebrow">Projet sélectionné</span><h6 class="mt-2 mb-1">${escapeHTML(selected.name)}</h6><p class="small text-muted">${escapeHTML(selected.id)} · ${escapeHTML(selected.wilayas.join(', '))} · ${escapeHTML(selected.sector)}</p>${referenceStatusBadge(selected)}
             <div class="project-fact mt-3"><span>AE actuelle</span><strong>${referenceNumber(selected.aeCurrent)} Md DA</strong></div>
             <div class="project-fact"><span>Avancement physique / financier</span><strong>${referenceNumber(selected.physical, 1)} % / ${referenceNumber(selected.financial, 1)} %</strong></div>
             <div class="project-fact"><span>Fin contractuelle</span><strong>${escapeHTML(selected.contractualEnd)}</strong></div>
             <div class="project-fact"><span>Alertes actives</span><strong>${referenceAlerts(selected).length}</strong></div>
-            <div class="project-fact"><span>Dernière situation</span><strong>${referenceSource.situationDate}</strong></div>
             <button class="btn btn-primary w-100 mt-3" data-reference-project="${selected.slug}">Ouvrir la fiche projet</button>
           </div>` : '<div class="empty-state py-3">Les projets démonstratifs des rôles non nationaux ne disposent pas de coordonnées fiables. Les wilayas restent consultables.</div>'}
           <div class="small text-muted mt-3">Référentiel géographique : <a href="${wilayaSource.url}" target="_blank" rel="noopener noreferrer">Algeria-Cities</a> · licence ${wilayaSource.license}.</div>
@@ -1076,7 +1095,6 @@ function referenceFollowupPage() {
             <thead><tr><th scope="col">Projet</th><th scope="col">Action</th><th scope="col">Destinataire</th><th scope="col">Échéance</th><th scope="col">Suivi</th></tr></thead>
             <tbody>${actions}</tbody>
           </table></div>
-          <div class="reference-portfolio-footnote">Actions tirées des recommandations de la source de référence.</div>
         </div>
       </div>
       <div class="col-12 col-xl-5">
@@ -1288,21 +1306,127 @@ function render() {
   renderCurrentPage();
 }
 
+const searchNormalize = (value) => String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const searchHighlight = (text, tokens) => {
+  const source = String(text ?? '');
+  const plain = searchNormalize(source);
+  const ranges = [];
+  tokens.forEach((token) => {
+    const at = plain.indexOf(token);
+    if (at >= 0) ranges.push([at, at + token.length]);
+  });
+  if (!ranges.length) return escapeHTML(source);
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  ranges.forEach((range) => {
+    const last = merged[merged.length - 1];
+    if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+    else merged.push([...range]);
+  });
+  let out = '';
+  let cursor = 0;
+  merged.forEach(([from, to]) => {
+    out += `${escapeHTML(source.slice(cursor, from))}<mark>${escapeHTML(source.slice(from, to))}</mark>`;
+    cursor = to;
+  });
+  return out + escapeHTML(source.slice(cursor));
+};
+
+// Recherche globale : s'appuie uniquement sur les jeux de données existants de l'application
+// (projets du périmètre de l'utilisateur + fiches de référence pour Direction / PMO).
+function searchEntries() {
+  const entries = allScopedProjects().map((project) => ({
+    kind: 'project', key: project.id, name: project.name, ref: project.id,
+    meta: [project.sector, project.wilaya].filter(Boolean).join(' · '),
+    status: project.status, statusClass: projectStatusClass(project.status),
+    hay: [project.name, project.shortName, project.id, project.sector, project.wilaya, project.owner, project.contractor, project.bet].join(' ')
+  }));
+  if (['direction', 'pmo'].includes(roleKeyFor(state.user))) {
+    referenceProjects.forEach((project) => {
+      const status = referenceStatus(project);
+      entries.push({
+        kind: 'reference', key: project.slug, name: project.name, ref: project.id,
+        meta: [project.sector, project.wilayas.join(', ')].filter(Boolean).join(' · '),
+        status, statusClass: status === 'À l’arrêt' ? 'red' : status === 'En retard' ? 'orange' : 'green',
+        hay: [project.name, project.id, project.slug, project.sector, project.wilayas.join(' '), project.contractor, project.bet, project.control, project.observation].join(' ')
+      });
+    });
+  }
+  return entries;
+}
+
+function searchResults(query) {
+  const tokens = searchNormalize(query).split(/\s+/).filter(Boolean);
+  if (!tokens.length) return { tokens, projects: [], kpis: [] };
+  const projectsFound = searchEntries()
+    .map((entry) => {
+      const hay = searchNormalize(entry.hay);
+      if (!tokens.every((token) => hay.includes(token))) return null;
+      const name = searchNormalize(entry.name);
+      const rank = name.startsWith(tokens[0]) ? 0 : tokens.every((token) => name.includes(token)) ? 1 : searchNormalize(entry.ref).includes(tokens[0]) ? 2 : 3;
+      return { entry, rank };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.rank - b.rank || a.entry.name.localeCompare(b.entry.name, 'fr'))
+    .map((item) => item.entry);
+  const kpisFound = visibleKPIs().filter((item) => {
+    const hay = searchNormalize(`${item.KPI_ID} ${item.Nom_KPI}`);
+    return tokens.every((token) => hay.includes(token));
+  });
+  return { tokens, projects: projectsFound, kpis: kpisFound };
+}
+
+function renderSearchResults(query) {
+  const trimmed = String(query || '').trim();
+  if (!trimmed) return '';
+  const { tokens, projects: found, kpis: kpiFound } = searchResults(trimmed);
+  if (!found.length && !kpiFound.length) {
+    return `<div class="search-empty" role="status">Aucun projet ne correspond à « ${escapeHTML(trimmed)} ».</div>`;
+  }
+  const attr = (entry) => entry.kind === 'reference' ? `data-reference-project="${escapeHTML(entry.key)}"` : `data-project-id="${escapeHTML(entry.key)}"`;
+  const shown = found.slice(0, 8);
+  const projectItems = shown.map((entry) => `<button type="button" class="search-item" role="option" ${attr(entry)}><span class="search-item-main"><strong>${searchHighlight(entry.name, tokens)}</strong><small>${searchHighlight(entry.ref, tokens)}${entry.meta ? ` · ${searchHighlight(entry.meta, tokens)}` : ''}</small></span>${statusPill(entry.statusClass, entry.status)}</button>`).join('');
+  const kpiItems = kpiFound.slice(0, 3).map((item) => `<button type="button" class="search-item" role="option" data-kpi-id="${escapeHTML(item.KPI_ID)}"><span class="search-item-main"><strong>${searchHighlight(item.Nom_KPI, tokens)}</strong><small>${escapeHTML(item.KPI_ID)} · ${escapeHTML(item.Famille || '')}</small></span><span class="badge bg-label-secondary">KPI</span></button>`).join('');
+  const more = found.length > shown.length ? `<button type="button" class="search-all" data-search-all="${escapeHTML(trimmed)}">Voir les ${found.length} projets dans le portefeuille</button>` : '';
+  return `${found.length ? `<div class="search-group">Projets · ${found.length}</div>${projectItems}${more}` : ''}${kpiFound.length ? `<div class="search-group">Indicateurs · ${kpiFound.length}</div>${kpiItems}` : ''}`;
+}
+
+function updateSearchResults(form) {
+  const input = form?.querySelector('[name="query"]');
+  const panel = form?.querySelector('[data-search-results]');
+  if (!input || !panel) return;
+  const html = renderSearchResults(input.value);
+  panel.innerHTML = html;
+  panel.hidden = !html;
+  input.setAttribute('aria-expanded', String(Boolean(html)));
+}
+
+function closeSearchResults() {
+  document.querySelectorAll('[data-search-results]').forEach((panel) => { panel.hidden = true; });
+  document.querySelectorAll('.navbar-search [name="query"]').forEach((input) => input.setAttribute('aria-expanded', 'false'));
+}
+
+function moveSearchSelection(form, delta) {
+  const items = [...form.querySelectorAll('.search-item')];
+  if (!items.length) return;
+  const current = items.findIndex((item) => item.classList.contains('active'));
+  items.forEach((item) => item.classList.remove('active'));
+  const next = items[(current + delta + items.length) % items.length];
+  next.classList.add('active');
+  next.scrollIntoView({ block: 'nearest' });
+}
+
 function shell() {
   const config = role();
   const notificationCount = Math.min(9, currentInstances().filter((instance) => !state.notificationsRead.includes(instance.id)).length);
   const roleNav = config.nav.map((page) => {
     const [label, iconName] = pageMeta[page];
     const executiveRole = ['direction', 'pmo'].includes(roleKeyFor(state.user));
-    const navLabel = page === 'dashboard' && executiveRole
-      ? 'Synthèse générale'
-      : page === 'messages' && executiveRole
-        ? 'Suivi et communication'
-        : label;
+    const navLabel = page === 'messages' && executiveRole ? 'Suivi et communication' : label;
     const active = page === state.page || (state.page === 'project' && page === 'portfolio');
     return `<li class="menu-item ${active ? 'active' : ''}"><a class="menu-link" data-nav="${page}"><i class="menu-icon tf-icons bx ${iconName}"></i><div>${escapeHTML(t(navLabel))}</div>${page === 'alerts' && currentInstances().length ? `<span class="badge badge-center rounded-pill bg-danger ms-auto">${currentInstances().length}</span>` : ''}</a></li>`;
   }).join('');
-  return `<div class="layout-wrapper layout-content-navbar"><div class="layout-container"><aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme"><div class="app-brand demo shell-brand"><a class="app-brand-link" data-nav="dashboard"><img class="shell-brand-logo" src="assets/img/taqaddum/logo.svg" width="36" height="36" alt="" decoding="async"><span class="app-brand-text demo menu-text fw-bolder ms-2">TAQADDUM</span></a><a href="javascript:void(0)" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none" aria-label="Fermer le menu"><i class="bx bx-chevron-left bx-sm align-middle"></i></a></div><div class="menu-inner-shadow"></div><div class="px-4 pb-2"><div class="role-chip w-100 justify-content-start"><i class="bx bx-shield-quarter"></i><span>${escapeHTML(config.name)}</span></div><small class="d-block text-muted mt-2 px-1">${escapeHTML(config.workspace)}</small></div><ul class="menu-inner py-1"><li class="menu-header small text-uppercase"><span class="menu-header-text">Espace de travail</span></li>${roleNav}<li class="menu-header small text-uppercase"><span class="menu-header-text">Session de démonstration</span></li><li class="menu-item"><a class="menu-link" data-action="logout"><i class="menu-icon tf-icons bx bx-log-out"></i><div>${escapeHTML(t('Déconnexion'))}</div></a></li></ul></aside><div class="layout-page"><nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar"><div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none"><a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)" aria-label="Ouvrir le menu"><i class="bx bx-menu bx-sm"></i></a></div><div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse"><form class="navbar-search d-flex align-items-center" data-form="global-search"><i class="bx bx-search fs-4 lh-0 text-muted"></i><input type="search" class="form-control border-0 shadow-none ms-2" name="query" placeholder="${escapeHTML(t('Rechercher un projet, KPI…'))}" aria-label="Rechercher" value="${escapeHTML(state.globalSearch)}"></form><ul class="navbar-nav flex-row align-items-center ms-auto"><li class="nav-item me-2"><span class="role-chip d-none d-lg-inline-flex">${escapeHTML(config.workspace)}</span></li><li class="nav-item me-2"><button class="btn btn-sm btn-text-secondary" data-action="language" aria-label="Changer de langue">${state.lang === 'fr' ? 'عربي' : 'FR'}</button></li><li class="nav-item me-2"><button class="btn btn-sm btn-icon btn-text-secondary position-relative" data-nav="notifications" aria-label="Notifications"><i class="bx bx-bell bx-sm"></i>${notificationCount ? `<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">${notificationCount}</span>` : ''}</button></li><li class="nav-item navbar-dropdown dropdown-user dropdown"><a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0)" data-bs-toggle="dropdown"><div class="avatar avatar-online"><span class="avatar-initials">${escapeHTML(state.user.initials)}</span></div></a><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="javascript:void(0)"><span class="d-flex align-items-center"><span class="avatar-initials me-3">${escapeHTML(state.user.initials)}</span><span><strong class="d-block">${escapeHTML(state.user.name)}</strong><small class="text-muted">${escapeHTML(state.user.title)}</small></span></span></a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="javascript:void(0)"><i class="bx bx-building me-2"></i>${escapeHTML(state.user.organization)}</a></li><li><a class="dropdown-item" data-action="logout"><i class="bx bx-log-out me-2"></i>${escapeHTML(t('Déconnexion'))}</a></li></ul></li></ul></div></nav><div class="content-wrapper"><div class="container-xxl flex-grow-1 container-p-y" id="page-content"><div class="app-content-area"></div></div><footer class="content-footer footer bg-footer-theme"><div class="container-xxl d-flex flex-wrap justify-content-between py-2 flex-md-row flex-column"><div class="mb-2 mb-md-0 text-muted small">TAQADDUM · Prototype de démonstration frontend · Référentiel TAQADDUM v1</div><div class="text-muted small">Données fictives · aucune connexion à un système institutionnel</div></div></footer><div class="content-backdrop fade"></div></div></div></div><div class="layout-overlay layout-menu-toggle"></div></div><div class="modal fade" id="detail-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content"></div></div></div>`;
+  return `<div class="layout-wrapper layout-content-navbar"><div class="layout-container"><aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme"><div class="app-brand demo shell-brand"><a class="app-brand-link" data-nav="dashboard"><img class="shell-brand-logo" src="assets/img/taqaddum/logo.svg" width="36" height="36" alt="" decoding="async"><span class="app-brand-text demo menu-text fw-bolder ms-2">TAQADDUM</span></a><a href="javascript:void(0)" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none" aria-label="Fermer le menu"><i class="bx bx-chevron-left bx-sm align-middle"></i></a></div><div class="menu-inner-shadow"></div><div class="px-4 pb-2"><div class="role-chip w-100 justify-content-start"><i class="bx bx-shield-quarter"></i><span>${escapeHTML(config.name)}</span></div><small class="d-block text-muted mt-2 px-1">${escapeHTML(config.workspace)}</small></div><ul class="menu-inner py-1"><li class="menu-header small text-uppercase"><span class="menu-header-text">Espace de travail</span></li>${roleNav}<li class="menu-header small text-uppercase"><span class="menu-header-text">Session de démonstration</span></li><li class="menu-item"><a class="menu-link" data-action="logout"><i class="menu-icon tf-icons bx bx-log-out"></i><div>${escapeHTML(t('Déconnexion'))}</div></a></li></ul></aside><div class="layout-page"><nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar"><div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none"><a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)" aria-label="Ouvrir le menu"><i class="bx bx-menu bx-sm"></i></a></div><div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse"><form class="navbar-search d-flex align-items-center" data-form="global-search" role="search"><i class="bx bx-search fs-4 lh-0 text-muted"></i><input type="search" class="form-control border-0 shadow-none ms-2" name="query" placeholder="${escapeHTML(t('Rechercher un projet, KPI…'))}" aria-label="Rechercher un projet" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="global-search-results" value="${escapeHTML(state.globalSearch)}"><div class="search-results" id="global-search-results" role="listbox" data-search-results hidden></div></form><ul class="navbar-nav flex-row align-items-center ms-auto"><li class="nav-item me-2"><span class="role-chip d-none d-lg-inline-flex">${escapeHTML(config.workspace)}</span></li><li class="nav-item me-2"><button class="btn btn-sm btn-text-secondary" data-action="language" aria-label="Changer de langue">${state.lang === 'fr' ? 'عربي' : 'FR'}</button></li><li class="nav-item me-2"><button class="btn btn-sm btn-icon btn-text-secondary position-relative" data-nav="notifications" aria-label="Notifications"><i class="bx bx-bell bx-sm"></i>${notificationCount ? `<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">${notificationCount}</span>` : ''}</button></li><li class="nav-item navbar-dropdown dropdown-user dropdown"><a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0)" data-bs-toggle="dropdown"><div class="avatar avatar-online"><span class="avatar-initials">${escapeHTML(state.user.initials)}</span></div></a><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="javascript:void(0)"><span class="d-flex align-items-center"><span class="avatar-initials me-3">${escapeHTML(state.user.initials)}</span><span><strong class="d-block">${escapeHTML(state.user.name)}</strong><small class="text-muted">${escapeHTML(state.user.title)}</small></span></span></a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="javascript:void(0)"><i class="bx bx-building me-2"></i>${escapeHTML(state.user.organization)}</a></li><li><a class="dropdown-item" data-action="logout"><i class="bx bx-log-out me-2"></i>${escapeHTML(t('Déconnexion'))}</a></li></ul></li></ul></div></nav><div class="content-wrapper"><div class="container-xxl flex-grow-1 container-p-y" id="page-content"><div class="app-content-area"></div></div><footer class="content-footer footer bg-footer-theme"><div class="container-xxl d-flex flex-wrap justify-content-between py-2 flex-md-row flex-column"><div class="mb-2 mb-md-0 text-muted small">TAQADDUM · Prototype de démonstration frontend · Référentiel TAQADDUM v1</div><div class="text-muted small">Données fictives · aucune connexion à un système institutionnel</div></div></footer><div class="content-backdrop fade"></div></div></div></div><div class="layout-overlay layout-menu-toggle"></div></div><div class="modal fade" id="detail-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content"></div></div></div>`;
 }
 
 function renderCurrentPage() {
@@ -1564,7 +1688,7 @@ function initializeLeafletMaps(root) {
         fillColor: color,
         fillOpacity: 1
       });
-      marker.bindPopup(`<div class="leaflet-project-popup"><strong>${escapeHTML(project.name)}</strong><span>${escapeHTML(project.id)} · ${escapeHTML(project.sector)}</span><span>${escapeHTML(project.wilayas.join(', '))} · ${escapeHTML(status)}</span><span>Physique ${referenceNumber(project.physical, 1)} % · financier ${referenceNumber(project.financial, 1)} %</span><span>AE ${referenceNumber(project.aeCurrent)} Md DA · échéance ${escapeHTML(project.contractualEnd)}</span><span>${referenceAlerts(project).length} alerte(s) · situation au ${referenceSource.situationDate}</span><button type="button" class="btn btn-sm btn-primary mt-2" data-reference-project="${project.slug}">Ouvrir la fiche projet</button></div>`);
+      marker.bindPopup(`<div class="leaflet-project-popup"><strong>${escapeHTML(project.name)}</strong><span>${escapeHTML(project.id)} · ${escapeHTML(project.sector)}</span><span>${escapeHTML(project.wilayas.join(', '))} · ${escapeHTML(status)}</span><span>Physique ${referenceNumber(project.physical, 1)} % · financier ${referenceNumber(project.financial, 1)} %</span><span>AE ${referenceNumber(project.aeCurrent)} Md DA · échéance ${escapeHTML(project.contractualEnd)}</span><span>${referenceAlerts(project).length} alerte(s)</span><button type="button" class="btn btn-sm btn-primary mt-2" data-reference-project="${project.slug}">Ouvrir la fiche projet</button></div>`);
       marker.on('click', () => {
         selectMapProject(project.slug, false);
       });
@@ -1696,7 +1820,6 @@ function updateMapProjectSelection(project) {
       <div class="project-fact"><span>Avancement physique / financier</span><strong>${referenceNumber(project.physical, 1)} % / ${referenceNumber(project.financial, 1)} %</strong></div>
       <div class="project-fact"><span>Fin contractuelle</span><strong>${escapeHTML(project.contractualEnd)}</strong></div>
       <div class="project-fact"><span>Alertes actives</span><strong>${referenceAlerts(project).length}</strong></div>
-      <div class="project-fact"><span>Dernière situation</span><strong>${referenceSource.situationDate}</strong></div>
       <button class="btn btn-primary w-100 mt-3" data-reference-project="${project.slug}">Ouvrir la fiche projet</button>`;
   }
 }
@@ -1879,8 +2002,31 @@ function openReferenceProject(slug) {
 }
 
 app.addEventListener('click', (event) => {
-  const target = event.target.closest('[data-nav], [data-project-id], [data-reference-project], [data-reference-map-project], [data-reference-project-tab], [data-reference-portfolio-status], [data-prepare-reference-action], [data-kpi-id], [data-alert-id], [data-rule-id], [data-project-tab], [data-alert-tab], [data-action], [data-demo-user], [data-page], [data-export], [data-map-project], [data-map-toggle], [data-map-fit], [data-map-reset], [data-conversation-id], [data-doc-preview], [data-notification-id]');
+  const target = event.target.closest('[data-nav], [data-project-id], [data-reference-project], [data-reference-map-project], [data-reference-project-tab], [data-reference-portfolio-status], [data-prepare-reference-action], [data-dashboard-status], [data-search-all], [data-kpi-id], [data-alert-id], [data-rule-id], [data-project-tab], [data-alert-tab], [data-action], [data-demo-user], [data-page], [data-export], [data-map-project], [data-map-toggle], [data-map-fit], [data-map-reset], [data-conversation-id], [data-doc-preview], [data-notification-id]');
   if (!target) return;
+  if (target.dataset.dashboardStatus !== undefined) {
+    state.referencePortfolioStatus = target.dataset.dashboardStatus;
+    state.referencePortfolioQuery = '';
+    state.page = 'portfolio';
+    state.projectId = null;
+    state.globalSearch = '';
+    render();
+    return;
+  }
+  if (target.dataset.searchAll !== undefined) {
+    const query = target.dataset.searchAll;
+    state.projectId = null;
+    state.page = 'portfolio';
+    if (['direction', 'pmo'].includes(roleKeyFor(state.user))) {
+      state.referencePortfolioQuery = query;
+      state.referencePortfolioStatus = '';
+      state.globalSearch = '';
+    } else {
+      state.globalSearch = query;
+    }
+    render();
+    return;
+  }
   if (target.dataset.demoUser) {
     const account = demoAccounts.find((item) => item.username === target.dataset.demoUser);
     document.querySelector('[name="username"]').value = account.username;
@@ -2073,6 +2219,13 @@ app.addEventListener('click', (event) => {
 });
 
 app.addEventListener('click', (event) => {
+  if (event.target.closest('[data-search-results] .search-item, [data-search-all]')) {
+    const input = document.querySelector('.navbar-search [name="query"]');
+    if (input) input.value = '';
+    closeSearchResults();
+  } else if (!event.target.closest('.navbar-search')) {
+    closeSearchResults();
+  }
   const menuToggle = event.target.closest('.layout-menu-toggle');
   if (menuToggle) {
     event.preventDefault();
@@ -2092,7 +2245,22 @@ app.addEventListener('click', (event) => {
   }
 });
 
+app.addEventListener('focusin', (event) => {
+  if (event.target.matches('.navbar-search [name="query"]') && event.target.value.trim()) updateSearchResults(event.target.closest('form'));
+});
+
 app.addEventListener('keydown', (event) => {
+  if (event.target.matches('.navbar-search [name="query"]')) {
+    const form = event.target.closest('form');
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (form.querySelector('[data-search-results]').hidden) updateSearchResults(form);
+      moveSearchSelection(form, event.key === 'ArrowDown' ? 1 : -1);
+    } else if (event.key === 'Escape') {
+      closeSearchResults();
+    }
+    return;
+  }
   if (!['Enter', ' '].includes(event.key)) return;
   const row = event.target.closest('.reference-row-link');
   if (!row) return;
@@ -2139,11 +2307,10 @@ app.addEventListener('submit', async (event) => {
   }
   if (form.dataset.form === 'global-search') {
     const query = String(data.get('query') || '').trim();
-    state.globalSearch = query;
-    const kpiMatch = visibleKPIs().some((item) => `${item.KPI_ID} ${item.Nom_KPI}`.toLowerCase().includes(query.toLowerCase()));
-    state.page = kpiMatch && !allScopedProjects().some((project) => `${project.name} ${project.id}`.toLowerCase().includes(query.toLowerCase())) ? 'kpis' : 'portfolio';
-    state.projectId = null;
-    render();
+    if (!query) return;
+    updateSearchResults(form);
+    const choice = form.querySelector('.search-item.active') || form.querySelector('.search-item');
+    if (choice) choice.click();
     return;
   }
   if (form.dataset.form === 'project-search') {
@@ -2384,6 +2551,7 @@ app.addEventListener('change', (event) => {
 );
 
 app.addEventListener('input', (event) => {
+  if (event.target.matches('.navbar-search [name="query"]')) updateSearchResults(event.target.closest('form'));
   if (event.target.matches('[data-kpi-search]')) {
     state.globalSearch = event.target.value;
     renderCurrentPage();
