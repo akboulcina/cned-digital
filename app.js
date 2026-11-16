@@ -1416,10 +1416,10 @@ function moveSearchSelection(form, delta) {
   next.scrollIntoView({ block: 'nearest' });
 }
 
-// Décor du menu latéral : petits carrés très légers qui apparaissent et disparaissent (grands chantiers).
+// Décor du menu latéral : fins traits lumineux (éclairs) qui traversent et s'effacent, derrière le texte.
 function menuSquares() {
-  const cells = [[12, 6, 26], [70, 11, 18], [38, 19, 34], [82, 27, 22], [18, 35, 20], [58, 42, 30], [8, 52, 36], [74, 58, 24], [34, 66, 18], [62, 74, 32], [14, 82, 22], [80, 88, 28], [44, 92, 16], [26, 48, 12]];
-  return `<div class="menu-squares" aria-hidden="true">${cells.map(([x, y, size], index) => `<i style="--x:${x}%;--y:${y}%;--s:${size}px;--d:${((index * 1.37) % 9).toFixed(2)}s;--t:${(7 + (index % 5) * 1.3).toFixed(1)}s"></i>`).join('')}</div>`;
+  const bolts = [[8, 10, 90, -14], [24, 38, 70, 10], [42, 4, 110, -8], [56, 52, 80, 16], [70, 20, 100, -18], [86, 46, 76, 8], [16, 66, 96, -10], [48, 78, 84, 14], [76, 70, 104, -6], [92, 90, 72, 12]];
+  return `<div class="menu-squares" aria-hidden="true">${bolts.map(([x, y, length, angle], index) => `<i style="--x:${x}%;--y:${y}%;--l:${length}px;--a:${angle}deg;--d:${((index * 1.61) % 8).toFixed(2)}s;--t:${(5.5 + (index % 4) * 1.2).toFixed(1)}s"></i>`).join('')}</div>`;
 }
 
 function shell() {
