@@ -330,7 +330,7 @@ body {
   50% { transform: translateX(14px); }
 }
 
-/* Menu latéral : carrés discrets qui apparaissent et disparaissent */
+/* Menu latéral : fins éclairs lumineux qui passent et s'effacent (derrière le texte) */
 .menu-squares {
   position: absolute;
   z-index: -1;
@@ -343,19 +343,20 @@ body {
   position: absolute;
   top: var(--y);
   left: var(--x);
-  width: var(--s);
-  height: var(--s);
-  border: 1px solid rgb(47 102 136 / 22%);
-  border-radius: 4px;
-  background: rgb(47 102 136 / 6%);
+  width: 1px;
+  height: var(--l);
+  background: linear-gradient(to bottom, transparent, rgb(47 102 136 / 28%) 45%, rgb(120 180 215 / 40%) 55%, transparent);
   opacity: 0;
-  animation: menu-square var(--t) ease-in-out var(--d) infinite;
+  transform: rotate(var(--a));
+  animation: menu-bolt var(--t) ease-in-out var(--d) infinite;
 }
 
-@keyframes menu-square {
-  0%, 100% { opacity: 0; transform: translateY(8px) scale(0.7) rotate(0deg); }
-  35%, 60% { opacity: 1; transform: translateY(0) scale(1) rotate(3deg); }
-  85% { opacity: 0; transform: translateY(-8px) scale(0.92) rotate(-2deg); }
+@keyframes menu-bolt {
+  0%, 100% { opacity: 0; transform: translateY(-24px) rotate(var(--a)); }
+  18% { opacity: 0.9; }
+  30% { opacity: 0.25; }
+  42% { opacity: 1; transform: translateY(8px) rotate(var(--a)); }
+  70% { opacity: 0; transform: translateY(30px) rotate(var(--a)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -367,7 +368,7 @@ body {
   }
 
   .menu-squares i {
-    opacity: 0.5;
+    opacity: 0.25;
   }
 }
 
