@@ -265,16 +265,110 @@ body {
 
 .shell-brand .app-brand-text {
   color: var(--cned-navy);
-  font-size: 1rem;
-  letter-spacing: 0.12em;
+  font-size: 1.15rem;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .shell-brand-logo {
   display: block;
-  width: 36px;
-  height: 36px;
+  width: 46px;
+  height: 46px;
   flex: none;
+}
+
+/* Logo + nom : léger ondoiement, comme un drapeau dans le vent */
+.brand-flag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  padding-inline-end: 0.5rem;
+  transform-origin: left center;
+  animation: brand-flag-wave 5s ease-in-out infinite;
+  will-change: transform;
+}
+
+.brand-flag::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 35%, rgb(255 255 255 / 70%) 50%, transparent 65%);
+  content: '';
+  transform: translateX(-120%);
+  animation: brand-flag-sheen 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes brand-flag-wave {
+  0%, 100% { transform: perspective(500px) rotateY(0deg) skewY(0deg) translateY(0); }
+  20% { transform: perspective(500px) rotateY(-7deg) skewY(-1.6deg) translateY(-1px); }
+  50% { transform: perspective(500px) rotateY(4deg) skewY(1.4deg) translateY(1px); }
+  75% { transform: perspective(500px) rotateY(-4deg) skewY(-1deg) translateY(0); }
+}
+
+@keyframes brand-flag-sheen {
+  0%, 45% { transform: translateX(-120%); }
+  80%, 100% { transform: translateX(120%); }
+}
+
+/* Pied de page : balancement doux */
+.footer-sway-wrap {
+  overflow: hidden;
+  text-align: center;
+}
+
+.footer-sway {
+  display: inline-block;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  animation: footer-sway 8s ease-in-out infinite;
+}
+
+@keyframes footer-sway {
+  0%, 100% { transform: translateX(-14px); }
+  50% { transform: translateX(14px); }
+}
+
+/* Menu latéral : carrés discrets qui apparaissent et disparaissent */
+.menu-squares {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.menu-squares i {
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: var(--s);
+  height: var(--s);
+  border: 1px solid rgb(47 102 136 / 22%);
+  border-radius: 4px;
+  background: rgb(47 102 136 / 6%);
+  opacity: 0;
+  animation: menu-square var(--t) ease-in-out var(--d) infinite;
+}
+
+@keyframes menu-square {
+  0%, 100% { opacity: 0; transform: translateY(8px) scale(0.7) rotate(0deg); }
+  35%, 60% { opacity: 1; transform: translateY(0) scale(1) rotate(3deg); }
+  85% { opacity: 0; transform: translateY(-8px) scale(0.92) rotate(-2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-flag,
+  .brand-flag::after,
+  .footer-sway,
+  .menu-squares i {
+    animation: none;
+  }
+
+  .menu-squares i {
+    opacity: 0.5;
+  }
 }
 
 .app-brand-link {
