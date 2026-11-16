@@ -184,8 +184,8 @@ const pageMeta = {
   documents: ['Documents', 'bx-folder-open'],
   messages: ['Communication', 'bx-message-rounded-dots'],
   reports: ['Rapports & analyses', 'bx-file'],
-  notifications: ['Notifications', 'bx-notification'],
-  'reference-project': ['Espace projet · Djendjen', 'bx-building-house']
+  notifications: ['Notifications', 'bx-notification']
+  //'reference-project': ['Espace projet · Djendjen', 'bx-building-house']
 };
 
 const translations = {
